@@ -1,0 +1,57 @@
+#ifndef SWINGGATE_H
+#define SWINGGATE_H
+
+#include <QThread>
+#include <QApplication>
+#include "posix_qextserialport.h"
+#include "config.h"
+#include "protocol.h"
+#include "userevent.h"
+#include "dataprocess.h"
+
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
+class SwingGate : public QThread
+{
+    Q_OBJECT
+public:
+    explicit SwingGate(QObject *parent = 0);
+    void CloseCom();
+    void QuitFlag();
+private:
+    QObject *fm;
+    QSettings *qs;
+    Posix_QextSerialPort *myCom;
+    void run();
+
+    int fp;
+    bool comOpenErr;
+    void SendBuf(QByteArray buf);
+    QByteArray ReadMyCom();
+    bool IsComOnboardFlag;
+    quint16 readComDelayTime;
+    bool quit_flag;
+
+    bool event(QEvent *);
+    void SetPer(quint16);
+    void SetType(quint8);
+
+    bool swingHeatFlag;
+    QTimer *swingGateHeatTimer;
+    void SwingGateHeat();
+private slots:
+    void SwingGateHeatTimerOut();
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // SWINGGATE_H

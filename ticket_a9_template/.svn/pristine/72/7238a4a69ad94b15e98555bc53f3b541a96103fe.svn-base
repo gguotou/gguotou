@@ -1,0 +1,42 @@
+#ifndef WEBSOCKETSERVER_H
+#define WEBSOCKETSERVER_H
+
+#include <QThread>
+#include <QApplication>
+#include <QDebug>
+#include "config.h"
+#include "protocol.h"
+#include "userevent.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include "dataprocess.h"
+
+#define UNIX_DOMAIN "/tmp/UNIX.domain"
+
+class WebSocketServer : public QThread
+{
+    Q_OBJECT
+public:
+    explicit WebSocketServer(QObject *parent = 0);
+private:
+    QObject *fm;
+    bool wait;
+    int lsn_fd, apt_fd;
+    struct sockaddr_un srv_addr;
+    struct sockaddr_un clt_addr;
+    socklen_t clt_len;
+    int ret;
+    char buf[1024];
+    void run();
+    bool event(QEvent *);
+
+    void SendDat(QByteArray);
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // WEBSOCKETSERVER_H

@@ -1,0 +1,74 @@
+#ifndef USBFINGER_H
+#define USBFINGER_H
+
+#include <QThread>
+#include <QDebug>
+#include <QTimer>
+
+#include "config.h"
+#include "protocol.h"
+#include "userevent.h"
+#include "dataprocess.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <pthread.h>
+#include <time.h>
+
+//#include <fcntl.h>
+//#include <errno.h>
+#include <signal.h>
+#include <dlfcn.h>
+
+extern "C"{
+    #include "libWelGfp.h"
+}
+
+class UsbFinger : public QThread
+{
+   Q_OBJECT
+public:
+    UsbFinger(QObject * parent);
+private:
+    quint8 runType;
+    quint8 runFlag;
+    quint8 runStyle;
+    quint8 fingerGetTimes;
+    QObject *fm;
+    void ToForm(QByteArray,int);
+    void run();
+    bool event(QEvent *);
+
+    int iRet;
+    int len,iScore;
+    int iFun;
+    int iImageWidth,iImageHeight;
+    int iImageLen;
+    int iBmpLen;
+    int iTimeOut;
+    char cpVersion[256];
+    unsigned char cFeature[256];
+    unsigned char cTemplate[256];
+    unsigned char cTempFeature[256];
+    unsigned char cImage[152 * 200];
+    unsigned char cpBmpData[1078+152 * 200];
+
+    void FPIFeature(quint8 t);
+    void FPITemplate(quint8 t);
+    void FPITemplate_direct();//指纹常开的时候用，直接取特征当成模板
+    int FPIGetFingerPic();
+    int Sys_fileWrite(char *cpname,int ioffset,char *cpbuf,int ilen);
+    int GetFeatureEx(int bufferId, unsigned char *pucFeature, int *piFeatureLen, unsigned char *pucBmpData);
+    void FpImageToBMP(int width, int height, unsigned char *cpImagesrc, unsigned char *cpBmpdst);
+
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // USBFINGER_H

@@ -1,0 +1,8 @@
+#include "userevent.h"
+
+UserEvent::UserEvent(CR::EventType ut,QObject * nid)
+        :QEvent(QEvent::User),
+        userType(ut),
+        id(nid)
+{
+}

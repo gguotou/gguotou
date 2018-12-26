@@ -1,0 +1,44 @@
+<RCC>
+    <qresource prefix="/new/prefix1">
+        <file>src/icon-加热.png</file>
+        <file>src/icon-加热启动1.png</file>
+        <file>src/icon-加热启动2.png</file>
+        <file>src/icon-检票状态.png</file>
+        <file>src/icon-降温.png</file>
+        <file>src/icon-降温启动1.png</file>
+        <file>src/icon-降温启动2.png</file>
+        <file>src/icon-票号.png</file>
+        <file>src/icon-票型.png</file>
+        <file>src/icon-湿度.png</file>
+        <file>src/icon-时间.png</file>
+        <file>src/icon-温度.png</file>
+        <file>src/icon-已检票.png</file>
+        <file>src/底部.png</file>
+        <file>src/底部按钮.png</file>
+        <file>src/底栏.png</file>
+        <file>src/底图.png</file>
+        <file>src/顶部.png</file>
+        <file>src/游客信息-检票成功.png</file>
+        <file>src/游客信息-检票失败.png</file>
+        <file>src/游客信息-照片.png</file>
+        <file>src/游客信息-指纹.png</file>
+        <file>src/状态-滚动闸机.png</file>
+        <file>src/状态-滚动闸机故障.png</file>
+        <file>src/状态-链接失败.png</file>
+        <file>src/状态-门票.png</file>
+        <file>src/状态-门票故障.png</file>
+        <file>src/状态-门型闸机.png</file>
+        <file>src/状态-门型闸机故障.png</file>
+        <file>src/状态-扇形闸机.png</file>
+        <file>src/状态-扇形闸机故障.png</file>
+        <file>src/状态-身份证.png</file>
+        <file>src/状态-身份证故障.png</file>
+        <file>src/状态-无线两格.png</file>
+        <file>src/状态-无线三格.png</file>
+        <file>src/状态-无线四格.png</file>
+        <file>src/状态-无线一格.png</file>
+        <file>src/状态-有线连接.png</file>
+        <file>src/状态-指纹.png</file>
+        <file>src/状态-指纹故障.png</file>
+    </qresource>
+</RCC>

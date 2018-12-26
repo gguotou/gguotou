@@ -1,0 +1,344 @@
+/*
+ * 这是一个通过向串口发送一些指令到指纹读写器里面读取数据，然后通过事件发送到form文件中
+*/
+#include "serialfinger.h"
+
+SerialFinger::SerialFinger(QObject * parent)
+    :QThread(parent)
+{
+    qs = new QSettings(QS_FILEPATH, QSettings::IniFormat);
+    QString comStr;
+    QString str;
+    str = qs->value("AFINGERCOM","COM0").toString();
+
+    switch(str.mid(3,1).toInt())
+    {
+        case 0x01:comStr = COM1;break;
+        case 0x02:comStr = COM2;break;
+        case 0x03:comStr = COM3;break;
+        case 0x04:comStr = COM4;break;
+        case 0x05:comStr = COM5;break;
+        case 0x06:comStr = COM6;break;
+        default:comStr = FINGERCOM;break;
+    }
+
+    if(str.mid(3,1).toInt() >=1 && str.mid(3,1).toInt()<=6)
+    {
+        qDebug("serialfinger com is defined by user.conf");
+    }
+    else
+    {
+        qDebug("serialfinger com is defined by config.h");
+    }
+
+    if(comStr.indexOf("ttymxc")>=0)
+        IsComOnboardFlag = 1;
+    else
+        IsComOnboardFlag = 0;
+    if(IsComOnboardFlag)
+    {
+        QByteArray a;
+        a = comStr.toLatin1();
+        fp = open(a.data(),O_RDWR|O_NOCTTY|O_NDELAY); //打开串口0读写 //以非阻塞模式打开串口//O_NDELAY 等价于 O_NOBLOCK
+        if(fp == -1)
+        {
+            qDebug()<<QString("open %1 err").arg(comStr);
+            comOpenErr = 1;
+            return;
+        }
+
+        struct termios options;
+
+        tcgetattr(fp,&options);
+
+        cfsetispeed(&options,B115200);
+        cfsetospeed(&options,B115200);
+
+        options.c_cflag |= (CLOCAL|CREAD);
+        options.c_lflag  &= ~(ICANON | ECHO | ECHOE | ISIG);  /*Input*/
+        options.c_oflag  &= ~OPOST;   /*Output*/
+        options.c_iflag  &= ~(ICRNL|IXON);
+
+        tcsetattr(fp,TCSANOW,&options);
+    }
+    else
+    {
+        myCom = new Posix_QextSerialPort(comStr,Posix_QextSerialPort::Polling);
+
+        myCom->open(QIODevice::ReadWrite);
+        //根据组合枢内容对串口进行设置
+        //设置波特率
+
+        myCom->setBaudRate(BAUD115200);
+        myCom->setDataBits(DATA_8);
+        myCom->setParity(PAR_NONE);
+        myCom->setStopBits(STOP_1);
+
+        //设置数据流控制
+        myCom->setFlowControl(FLOW_OFF);
+        //设置延时
+        myCom->setTimeout(5);
+    }
+
+    if(220000%115200)
+        readComDelayTime = 220000/115200 + 1;
+    else
+        readComDelayTime = 220000/115200;
+
+    comOpenErr = 0;
+    fm = this->parent();
+
+    timer = new QTimer(this);
+    connect(timer,SIGNAL(timeout()),this,SLOT(TimerOut()));
+}
+void SerialFinger::CloseCom()
+{
+        myCom->close();
+}
+void SerialFinger::QuitFlag()
+{
+    quit_serial_flag =1;
+}
+void SerialFinger::SendBuf(QByteArray buf)
+{
+    if(comOpenErr)return;
+    if(IsComOnboardFlag)
+    {
+        char *message;
+        message = buf.data();
+        write(fp, message, buf.size());
+    }
+    else
+    {
+        myCom->write(buf);
+    }
+}
+
+QByteArray SerialFinger::ReadMyCom()
+{
+    if(comOpenErr)return 0;
+    if(IsComOnboardFlag)
+    {
+        QByteArray temp;
+        timeval tv;
+        int nread;
+        fd_set rfds;
+        char buff[1024];
+
+        temp.resize(0);
+
+        while((temp.data()[temp.length() -1] != 0x03)&&(timerOutFlag == 0))
+        {
+            //qDebug("timerOutFlag = %d",timerOutFlag);
+            tv.tv_sec=0;
+            tv.tv_usec=500;
+            FD_ZERO(&rfds);
+            FD_SET(fp, &rfds);
+
+            if (select(1+fp, &rfds, NULL, NULL, &tv))
+            {
+                if (FD_ISSET(fp, &rfds))
+                {
+                    nread = read(fp, buff, 1024);
+
+                    for(int i=0;i<nread;i++)
+                    {
+                        temp[temp.length()] = buff[i];
+                    }
+                }
+            }
+            msleep(readComDelayTime);
+        }
+        return temp;
+    }
+    else
+    {
+        QByteArray temp;
+        QByteArray buf;
+
+        temp.resize(0);
+        if(temp.length() == 0)//wait recv finger data
+        {
+            temp = myCom->readAll();
+            msleep(5);
+        }
+        if(temp.length() > 0)//recv data
+        {
+            while((temp.data()[temp.length() -1] != 0x03)&&(timerOutFlag == 0))
+            {
+                buf = myCom->readAll();
+                temp += buf;
+                msleep(readComDelayTime);
+            }
+        }
+        return temp;
+    }
+}
+
+void SerialFinger::run()
+{
+    QByteArray temp;
+    quit_serial_flag=0;
+    if(comOpenErr)return;
+    emit TicketDebug("serialfinger run");
+    while(runFlag)
+    {
+        if(quit_serial_flag)
+        {
+            delete timer;
+            //qDebug("BREAK WHILE IN SerialFinger-----------------------------");
+            break;
+        }
+        temp.resize(0);
+        temp = ReadMyCom();
+        if(timerOutFlag == 1)//recv timeout
+        {
+            runFlag = 0;
+            timerOutFlag = 0;
+            qDebug()<<"finger thread time out";
+            ToForm(temp,0);
+            return;
+            //FingerToChatform(temp,0);//timer out
+            //send chatform finger serial err
+        }
+        else if(temp.length() > 0)
+        {
+            runFlag = 0;
+            timer->stop();
+            timerOutFlag = 0;
+            ToForm(temp,1);
+            return;
+            //FingerToChatform(temp,1);//data recvserverIp
+            //send finger data to chatform
+        }
+    }
+}
+void SerialFinger::GetFeature(quint8 t)
+{
+    char buf[3][18] = {
+            {0x02,0x30,0x30,0x30,0x35,0x31,0x3b,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x31,0x3e,0x03},
+            {0x02,0x30,0x30,0x30,0x35,0x31,0x3b,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x31,0x31,0x3f,0x03},
+            {0x02,0x30,0x30,0x30,0x35,0x31,0x3b,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x32,0x31,0x3c,0x03}
+            };
+    runFlag = 1;
+    runType = t;
+    timerOutFlag = 0;
+    timer->stop();
+    QByteArray wrbuf = QByteArray::fromRawData(buf[t],18);
+    SendBuf(wrbuf);
+    timer->start(10000);
+    start();
+}
+void SerialFinger::GetTemplate(quint8 t)
+{
+    //qDebug()<<t;
+    char buf[2][16] = {
+        {0x02,0x30,0x30,0x30,0x34,0x31,0x3c,0x30,0x30,0x30,0x30,0x30,0x30,0x31,0x38,0x03},
+        {0x02,0x30,0x30,0x30,0x34,0x30,0x3c,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x38,0x03}
+            };
+    runType = 0x10 + t;
+    runFlag = 1;
+    timerOutFlag = 0;
+    timer->stop();
+    QByteArray wrbuf = QByteArray::fromRawData(buf[t],16);
+    SendBuf(wrbuf);
+    timer->start(10000);
+    this->start();
+}
+void SerialFinger::ToForm(QByteArray fingerd,bool flag)
+{
+    if(fingerd.length()>64)
+        emit TicketDebug("finger serial recv:"+BgComm::ByteArrayToString(fingerd.mid(0,32), 16, true)+"...... runType:0x"+QString::number(runType,16)+" flag:"+QString::number(flag));
+    else
+        emit TicketDebug("finger serial recv:"+BgComm::ByteArrayToString(fingerd, 16, true)+" runType:0x"+QString::number(runType,16)+" flag:"+QString::number(flag));
+   if(!flag)
+    {
+        UserEvent *ue = new UserEvent(CR::FingerTimerout,this);
+        ue->type = runType;
+        qApp->postEvent(fm,ue);
+        return;
+    }
+    switch(runType)
+    {
+        case 0x00:
+        case 0x01:
+        case 0x02:
+        {
+            UserEvent *ue = new UserEvent(CR::FingerFeature,this);
+            if((fingerd.data()[0] == 0x02)&&(fingerd.data()[6] == 0x30))
+                ue->flag = 1;
+            else
+                ue->flag = 0;
+            qApp->postEvent(fm,ue);
+            break;
+        }
+        case 0x10:
+        {
+            UserEvent *ue = new UserEvent(CR::FingerTemplate,this);
+            ue->type = runType;
+            if((fingerd.data()[0] == 0x02)&&(fingerd.data()[6] == 0x30))
+            {
+                ue->flag = 1;
+                ue->byteArray = fingerd.mid(9,512) ;
+            }
+            else
+            {
+                ue->flag = 0;
+            }
+            qApp->postEvent(fm,ue);
+            break;
+        }
+        case 0x11:
+        {
+            UserEvent *ue = new UserEvent(CR::FingerTemplate,this);
+            ue->type = runType;
+            if((fingerd.data()[0] == 0x02)&&(fingerd.data()[6] == 0x30))
+            {
+                ue->flag = 1;
+                ue->byteArray = fingerd.mid(9,512);
+            }
+            else
+            {
+                ue->flag = 0;
+            }
+            qApp->postEvent(fm,ue);
+            break;
+        }
+        default:break;
+    }
+}
+
+bool SerialFinger::event(QEvent *event)
+{
+    if(event->type() == QEvent::User)
+    {
+        UserEvent * ue = static_cast<UserEvent *>(event);
+        switch(ue->userType)
+        {
+            case CR::FingerFeature:
+                emit TicketDebug("get FingerFeature");
+                GetFeature(ue->times);
+                break;
+            case CR::FingerTemplate:
+                emit TicketDebug("get FingerTemplate");
+                GetTemplate(ue->times);
+                break;
+            case CR::ledDisplay:
+                emit TicketDebug("send to ledDisplay:"+BgComm::ByteArrayToString(ue->byteArray, 16, true));
+                SendBuf(ue->byteArray);
+                break;
+            default:
+                return false;
+        }
+    }
+    else
+    {
+        return QThread::event(event);
+    }
+    return true;
+}
+void SerialFinger::TimerOut()
+{
+    timer->stop();
+    timerOutFlag = 1;
+}

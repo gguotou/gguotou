@@ -1,0 +1,42 @@
+#ifndef TCPCLIENT_H
+#define TCPCLIENT_H
+
+#include <QTcpSocket>
+#include <QTimer>
+#include <QApplication>
+
+#include "config.h"
+#include "protocol.h"
+#include "userevent.h"
+#include "dataprocess.h"
+
+class TcpClient : public QTcpSocket
+{
+     Q_OBJECT
+public:
+    TcpClient(QObject * parent = 0);
+    QObject * fm;
+private:
+    quint32 nextMessageSize;
+    quint32 totalMessageSize;
+    quint32 readMessageSize;
+    QTimer *timer;
+    QByteArray tcpData;
+    QByteArray tcpHead;
+    quint8 tcpHeadSize;
+
+    bool event(QEvent *);
+    bool doConnect(QString serverAddr,quint16 port);
+    bool doDisconnect();
+private slots:
+    void tcpError();
+    void tcpDisconnect();
+    void readServer();
+    bool TcpSend(QByteArray buf);
+    void TcpReadErr();
+    void processLogin();
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // TCPCLIENT_H

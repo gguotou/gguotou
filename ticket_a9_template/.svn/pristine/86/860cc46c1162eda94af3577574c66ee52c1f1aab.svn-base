@@ -1,0 +1,62 @@
+#ifndef FACEDETECT_H
+#define FACEDETECT_H
+
+#include <QThread>
+#include <QApplication>
+#include <QTimer>
+#include <QString>
+#include "config.h"
+
+#include "posix_qextserialport.h"
+#include "userevent.h"
+#include "dataprocess.h"
+
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
+class FaceDetect : public QThread
+{
+    Q_OBJECT
+public:
+    explicit FaceDetect(QObject *parent = 0);
+    void CloseCom();
+    void QuitFlag();
+private:
+    int fp;
+    void SendBuf(QByteArray buf);
+    QByteArray ReadMyCom();
+    QObject *fm;
+    Posix_QextSerialPort *myCom;
+    bool comOpenErr;
+    bool IsComOnboardFlag;
+    bool quit_flag;
+
+    void run();
+    bool event(QEvent *);
+
+    QTimer *FaceHeartTimer;
+    bool facedeverrflag;
+    quint8 facedeverrtimes;
+    quint8 ticketNoLen,ticketNoNum;
+    QByteArray ticketNo;
+
+    quint8 Prepare_fd(QByteArray data);
+    void face(quint8 type,quint8 result,QString ticketInfoBase64);
+    void faceconfirm(quint8 type,quint8 result);
+    void faceconfirm2(quint8 type,quint8 result,quint8 len,quint8 num,QByteArray ticketno);
+    void ToFormTicket(QByteArray,bool,quint8);
+private slots:
+    void FaceHeartTimerOut();
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // FACEDETECT_H

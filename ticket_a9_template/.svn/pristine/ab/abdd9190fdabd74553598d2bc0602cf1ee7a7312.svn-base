@@ -1,0 +1,46 @@
+/*
+ *  这个文件用于获取三辊闸反馈信息的
+ *  当三辊闸通过一个人时，会通过事件向from文件报告一次。
+*/
+#include "sdreboot.h"
+
+SDReboot::SDReboot(QObject *parent) :
+    QThread(parent)
+{
+    fm = this->parent();
+}
+void SDReboot::run()
+{
+    int fd;
+    quint8 count;
+
+    fd = open(DEV_REBOOT, O_RDWR);
+    if(fd < 0)
+    {
+        qDebug()<<"open sendinfo_reboot error!!!";
+    }
+    emit TicketDebug("SDReboot run");
+    while(1)
+    {
+        if(!ioctl(fd,0))
+        {
+            emit TicketDebug("sdreboot 1");
+            msleep(20);
+            if(!ioctl(fd,0))
+            {
+                count = 0;
+                while(!ioctl(fd,0))
+                {
+                    msleep(100);
+                    count++;
+                    if(count > 20)
+                    {
+                        emit TicketDebug("sdreboot...");
+                        QProcess::execute("reboot");
+                    }
+                }
+            }
+        }
+        msleep(5);
+    }
+}

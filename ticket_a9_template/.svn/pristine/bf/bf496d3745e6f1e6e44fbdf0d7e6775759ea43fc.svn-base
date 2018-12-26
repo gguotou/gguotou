@@ -1,0 +1,186 @@
+#ifndef PROTOCOL_H
+#define PROTOCOL_H
+
+#include <QObject>
+
+namespace CR
+{
+    const quint32 ServerId = 0;
+    const quint32 CenterId = 1;
+    const quint32 SystemId = 2;
+
+    const quint8 UserInfoUpdateAction = 0;
+    const quint8 UserInfoNewAction = 1;
+    const quint8 UserInfoLeaveAction = 2;
+
+    enum EventType {EventTypeBegin = 8000,
+                    LogEvent,
+                    ErrorEvent,
+
+                    ConnectOK,
+                    ConnectError,
+                    TcpError,
+                    TcpDisconnect,
+                    DoConnect,
+                    DoDisconnect,
+                    TcpReadMsg,
+                    TcpSendMsg,
+                    SendtoMessage,
+                    Netlinkup,
+                    NetlinkDown,
+
+                    FingerFeature,
+                    FingerTemplate,
+                    FingerTimerout,
+                    USBFingerFeature,
+                    USBFingerTemplate,
+                    USBFingerTemplate_direct,
+
+                    Drill,
+
+                    BarCode,
+                    RfidTicket,
+
+                    FeedBack,
+                    PowerOff,
+                    PowerOn,
+                    SwingGate,
+                    backuppara,
+                    SwingGateType,
+                    SwingGateBuf,
+                    CanSwingGate,
+                    CanSwingGateType,
+                    CanSwingGateBuf,
+                    CanWriteBuf,
+                    ledDisplay,
+
+                    UdpSave,
+                    UdpSaveTime,
+
+                    ftpconnect,
+                    ftpGet,
+
+                    PicFormDis,
+                    PicFormClose,
+
+                    SqliteSave,
+                    SqliteRead,
+                    TcpClientlog,
+                    TcpServerMsg,
+                    TcpClientLeave,
+
+                    DebugMsg,
+                    RFIDIN,
+                    RFIDSQ,
+
+                    ControllerToWebSocketServer,
+                    WebSocketServerToController,
+                    WebSocketServerToWebSocketClient,
+
+                    FACE,
+                    FACECONFIRM,
+                    FACECONFIRM2,
+
+                    TencentFace,
+                    ArcFace,
+                    BaiduFace,
+
+                    EventTypeEnd};
+    namespace MsgType{
+        enum MsgType{
+            MsgTypeBegin,
+            ClientInfo,
+            Message,
+            MsgTypeEnd};
+    }
+}
+
+#define SYST        "40"    //系统时间
+#define CLIC        "41"    //客户代码
+#define SCN         "42"    //景点号
+#define CHAN        "43"    //通道号
+#define SCNAM       "44"    //景点名称
+#define CHT         "45"    //检票类型
+#define CID         "46"    //通信ID
+#define DTN         "47"    //设备终端号
+#define MD5         "48"    //MD5加密数据
+#define SNENC       "49"    //序列号加密数据
+#define HC          "4A"    //心跳命令
+#define MBSN        "4B"    //主板序列号
+#define ATS         "80"    //应用类型
+#define BSEC        "81"    //后台错误代码
+#define MED         "9F01"  //介质
+#define BC          "9F02"  //条码号
+#define SN          "9F03"  //序列号
+#define UN          "9F04"  //用户编号
+#define CSN         "9F05"  //卡面编号
+#define CHN         "9F06"  //持卡人姓名
+#define CHS         "9F07"  //持卡人性别
+#define CHAG        "9F08"  //持卡人年龄
+#define CHAD        "9F09"  //持卡人住址
+#define CHPH        "9F0A"  //持卡人电话
+#define CHID        "9F0B"  //持卡人证件号
+#define CHDT        "9F0C"  //持卡人证件类型
+#define SALD        "9F0D"  //销售日期
+#define ACTD        "9F0E"  //激活日期
+#define EXPD        "9F0F"  //失效日期
+#define ICCCD       "9F10"  //IC卡自定义数据
+#define CPUCCD      "9F11"  //CPU卡自定义数据
+#define BST         "9F12"  //生物识别业务类型
+#define FF          "9F13"  //指纹特征
+#define PF          "9F14"  //掌纹特征
+#define TST         "9F15"  //票状态
+#define RIDN        "9F16"  //记录识别号
+#define TCL         "9F17"  //票类
+#define TTYP        "9F18"  //票型
+#define TS          "9F19"  //票来源
+#define PM          "9F1A"  //打孔模式
+#define CM          "9F1B"  //卡标志
+#define CCL         "9F1C"  //卡类
+#define CTYP        "9F1D"  //卡型
+#define OCM         "9F1E"  //出卡模式
+#define RNT         "9F1F"  //次卡剩余次数
+#define RAE         "9F20"  //电子钱包剩余金额
+#define CAM         "9F21"  //本次消费金额
+#define CONT        "9F22"  //消费类型
+#define BTT         "9F23"  //购票时间
+#define UST         "9F24"  //使用时间
+#define USC         "9F25"  //使用景点
+#define UCH         "9F26"  //使用通道
+#define TNT         "9F27"  //票总人数
+#define TNUM        "9F28"  //检票人数
+#define NTNUM       "9F29"  //未检票人数
+#define CUSVAD      "9F2A"  //自定义语音地址
+#define FAM         "9F2B"  //指纹应用模式
+#define PAM         "9F2C"  //照片应用模式
+#define IDAM        "9F2D"  //二代证应用模式
+#define PFR         "9F2E"  //图片总帧数
+#define PFRP        "9F2F"  //图片帧位置
+#define PFRC        "9F30"  //图片帧内容
+#define TCONST      "9F31"  //检票确认状态
+#define AUTF        "9F32"  //授权标志
+#define AUTC        "9F33"  //授权卡号
+#define ACCNUM      "9F34"  //通行人数
+#define CNO         "9F35"  //银行卡号
+#define CHAM        "9F36"  //扣款金额
+#define TRTYP       "9F37"  //交易类型
+#define TRAM        "9F38"  //交易金额
+#define TRT         "9F39"  //交易时间
+#define TRTN        "9F3A"  //交易终端号
+#define FST         "9F3B"  //指纹状态
+#define CUSBCYCH    "9F3C"  //自定义条码年卡头
+#define IFN         "9F3D"  //录入指纹数
+#define CFN         "9F3E"  //对比指纹数
+#define IIDN        "9F3F"  //录入二代证数
+#define CIDN        "9F40"  //比对二代证数
+#define EXD         "9F41"  //扩展位
+#define RT          "9F42"  //退票时间
+#define CTT         "9F43"  //换票时间
+#define RLT         "9F44"  //挂失时间
+#define FAST        "9F45"  //人脸状态
+#define TKIND       "9F46"  //票种
+#define CKIND       "9F47"  //卡种
+#define FATOR       "9F48"  //人脸订单号
+#define FATNO       "9F49"  //人脸流水号
+
+#endif // PROTOCOL_H

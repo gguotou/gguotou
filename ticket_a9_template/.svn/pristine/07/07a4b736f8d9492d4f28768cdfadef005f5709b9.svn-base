@@ -1,0 +1,25 @@
+#include "ledstate.h"
+
+LedState::LedState(QObject *parent) :
+    QThread(parent)
+{
+    fm = this->parent();
+}
+void LedState::run()
+{
+    int fd;
+    bool flag = 0;
+
+    fd = open(DEV_LEDSTATE, O_RDWR);
+    if(fd < 0)
+    {
+        qDebug()<<"open sendinfo_ledstate error!!!";
+    }
+    emit TicketDebug("LedState run");
+    while(1)
+    {
+        ioctl(fd,0,flag);
+        msleep(1000);
+        flag = !flag;
+    }
+}

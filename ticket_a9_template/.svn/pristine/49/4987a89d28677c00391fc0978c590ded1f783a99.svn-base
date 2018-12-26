@@ -1,0 +1,186 @@
+/*
+ * 这是一个数据处理文件，
+*/
+#include "dataprocess.h"
+
+QString BgComm::ByteArrayToString(QByteArray ascii, int base, bool chEn, const QChar &ch, int n)
+{
+    QString ret;
+
+    for(int i = 0; i < ascii.count(); i++)
+    {
+        if(i<(ascii.count()-1) && chEn)
+            ret.append(QString("%1%2").arg((uchar)ascii.at(i), n, base, (QChar)'0').arg(ch));
+        else
+            ret.append(QString("%1").arg((uchar)ascii.at(i), n, base, (QChar)'0'));
+    }
+
+    return ret.toUpper();
+}
+QString BgComm::FormatString(QString org, int n, const QChar &ch)
+{
+    QString temp;
+
+    temp = org.trimmed();//去除字符串两侧的空白字符(注意，空白字符包括空格、Tab以及换行符，而不仅仅是空格)
+    temp.remove(QRegExp("\\s"));//去除字符串前后及中间的空格
+    int size = temp.size();
+    int space = qRound(size*1.0/n+0.5)-1;//qRound四舍五入取模取余操作
+    if(space <= 0)
+        return temp;
+
+    for(int i=0,pos=n;i<space;++i,pos+=(n+1))
+    {
+        temp.insert(pos,ch);
+    }
+    temp = temp.trimmed();
+    return temp;
+}
+QByteArray BgComm::StringToByteArray(QString str, int base, const QChar &ch)
+{
+    int p;
+    QByteArray ret;
+    bool ok;
+
+    QStringList lst = str.simplified().split(ch);
+    ret.resize(lst.count());
+
+    for(int i = 0; i < lst.count(); i++)
+    {
+        p = lst.at(i).toInt(&ok, base);
+        if((!ok) || (p > 255))
+        {
+            return 0;
+        }
+        ret[i] = p;
+    }
+    return ret;
+}
+
+quint8 BgComm::SUMVerify(QByteArray buf)
+{
+    quint8 Verify = 0;
+    quint16 i;
+    for(i=0;i<buf.size();i++)
+    {
+        Verify += buf[i];
+    }
+    return Verify;
+}
+quint8 BgComm::XORVerify(QByteArray buf)
+{
+    int i;
+    quint8 Verify = 0;
+
+    for(i=0;i<buf.size();i++)
+    {
+        Verify^=(quint8)buf.data()[i];
+    }
+    return Verify;
+}
+QByteArray BgComm::StringToHex(QString hex)
+{
+    int i;
+    quint8 databuf;
+    QByteArray ret;
+    QByteArray outdata;
+    ret+=hex;
+    for(i=0;i<ret.size();i++)
+    {
+        if(ret.data()[i]!=' ')
+        {
+            if(ret.data()[i]>0x39)
+            {
+                databuf=(ret.data()[i]-'A'+10)<<4;
+            }
+            else
+            {
+                databuf=((ret.data()[i]-0x30)<<4);
+            }
+            i++;
+            if(ret.data()[i]>0x39)
+            {
+                outdata[outdata.length()]=databuf+ret.data()[i]-'A'+10;
+            }
+            else
+            {
+                outdata[outdata.length()]=databuf+ret.data()[i]-0x30;
+            }
+        }
+    }
+    return outdata;
+}
+QString BgComm::GetSpecificStr(QString cmd, QString c, quint8 i)
+{
+    int len = 0;
+    quint8 times = 0;
+    QString buf;
+
+    buf = cmd;
+    len = buf.indexOf(c);
+    if(len != -1)           //如果能搜索到特定字符，则在字符串末端加上一个特定字符，便于获取指定位的字符数据
+    {
+        buf.append(c);
+    }
+    while(len != -1)
+    {
+        if(times == i)
+        {
+            return buf.mid(0,len);
+        }
+        buf = buf.remove(0,len+c.length());
+        len = buf.indexOf(c);
+        times++;
+    }
+    buf.resize(0);
+    return buf;
+}
+
+bool BgComm::IsLeapYear(quint16 year)
+{
+    if((year % 4  == 0 && year % 100 != 0) || (year % 400 == 0))
+        return 1;
+    else
+        return 0;
+}
+bool BgComm::CheckDate(quint16 year, qint8 month, qint8 day)
+{
+    qDebug("Year = %d, Month = %d, Day = %d",year,month,day);
+    if(year < 2001)
+    {
+        qDebug("Year must be greater than 2001!");
+        return false;
+    }
+    if(month<0||month>12)
+    {
+        qDebug("Month must range from 1 to 12!");
+        return false;
+    }
+    if(day<0||day>31)
+    {
+        qDebug("Day must range from 1 to 31!");
+        return false;
+    }
+    else
+    {
+        if(month==2)
+        {
+            if(IsLeapYear(year)&&day>29)
+            {
+                qDebug("In Month 2,Day must range from 1 to 29!");
+                return false;
+            }
+
+            if(!IsLeapYear(year)&&day>28)
+            {
+                qDebug("In Month 2,Day must range from 1 to 28!");
+                return false;
+            }
+        }
+        if((month==4||month==6||month==9||month==11)&&(day>30))
+        {
+            qDebug("In this Month ,Day must range from 1 to 30!");
+            return false;
+        }
+    }
+    return true;
+}

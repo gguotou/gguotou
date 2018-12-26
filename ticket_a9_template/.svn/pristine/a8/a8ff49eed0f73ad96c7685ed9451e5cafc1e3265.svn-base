@@ -1,0 +1,46 @@
+#ifndef FEEDBACK_H
+#define FEEDBACK_H
+
+#include <QThread>
+#include <QDebug>
+#include <QApplication>
+#include <QProcess>
+
+#include "userevent.h"
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <termios.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include "config.h"
+#include <linux/input.h>/
+#define DEV_FEEDBACK "/dev/sendinfo_feedback"
+
+#define FEEDBACK1	0   //PCB丝印P4 FB1
+#define FEEDBACK2	1   //PCB丝印P5 FB2
+
+#define USB_FLGA        3
+#define USB_FLGB        4
+#define USB_FLGC	5
+#define USB_FLGD	6
+
+#define VDD_OK		8
+
+class FeedBack : public QThread
+{
+    Q_OBJECT
+public:
+    explicit FeedBack(QObject *parent = 0);
+private:
+    void run();
+    QObject *fm;
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // FEEDBACK_H

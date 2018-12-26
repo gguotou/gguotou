@@ -1,0 +1,164 @@
+#include "tcpserver.h"
+
+TcpServer::TcpServer(QObject *parent) :
+    QThread(parent)
+{
+    fm = this->parent();
+    timer = new QTimer(this);
+    connect(timer,SIGNAL(timeout()),this,SLOT(TcpReadErr()));
+
+    server = new QTcpServer(this);
+    if(!server->listen(QHostAddress::Any,4444))
+    {
+        qDebug()<<server->errorString();
+        //close();
+    }
+    connect(server,SIGNAL(newConnection()),this,SLOT(clientcome()));
+}
+void TcpServer::run()
+{
+    qDebug()<< "TcpServer run";
+    server = new QTcpServer(this);
+    if(!server->listen(QHostAddress::Any,4444))
+    {
+        qDebug()<<server->errorString();
+        //close();
+    }
+    connect(server,SIGNAL(newConnection()),this,SLOT(clientcome()));
+
+    while(1)
+    {
+
+    }
+}
+
+void TcpServer::clientcome()
+{
+    qDebug()<<"new client connect";
+
+    UserEvent * uie = new UserEvent(CR::TcpClientlog,this);
+    uie->flag = 0;
+    qApp->postEvent(fm,uie);
+
+    StartFlag = 0;
+    ReadMessageSize = 0;
+    TotalMessageSize = 0;
+    tcpdata.resize(0);
+
+    clientSocket = server->nextPendingConnection();
+    connect(clientSocket,SIGNAL(disconnected()),this,SLOT(clientleave()));
+    connect(clientSocket,SIGNAL(readyRead()),this,SLOT(readServer()));
+}
+void TcpServer::clientleave()
+{
+    UserEvent * uie = new UserEvent(CR::TcpClientLeave,this);
+    uie->flag = 0;
+    qApp->postEvent(fm,uie);
+    clientSocket->deleteLater();
+}
+
+void TcpServer::readServer()
+{
+    qDebug()<<"receive client data";
+
+    nextMessageSize = clientSocket->bytesAvailable();
+    QDataStream in(clientSocket);
+    in.setVersion(QDataStream::Qt_4_5);
+
+    if(ReadMessageSize < 4)//first read
+    {
+        timer->start(1500);
+        char * data = new char[nextMessageSize];
+        in.readRawData(data,nextMessageSize);
+        QByteArray qba(data,nextMessageSize);
+        delete []data;
+        tcpdata += qba;
+        ReadMessageSize = nextMessageSize;
+        if(ReadMessageSize>=4)
+        {
+            TotalMessageSize = (quint8)tcpdata.data()[2]*256+(quint8)tcpdata.data()[3]+5;
+        }
+        if(TotalMessageSize == ReadMessageSize)//only one
+        {
+            timer->stop();
+            UserEvent * ue = new UserEvent(CR::TcpServerMsg,this);
+            ue->byteArray = tcpdata;
+            qApp->postEvent(fm,ue);
+            ReadMessageSize = 0;
+            tcpdata.resize(0);
+            return;
+        }
+    }
+    if((ReadMessageSize+nextMessageSize) == TotalMessageSize)//read cmd over
+    {
+        timer->stop();
+        char * data = new char[nextMessageSize];
+        in.readRawData(data,nextMessageSize);
+        QByteArray qba(data,nextMessageSize);
+        delete []data;
+        tcpdata += qba;
+        UserEvent * ue = new UserEvent(CR::TcpServerMsg,this);
+        ue->byteArray = tcpdata;
+        qApp->postEvent(fm,ue);
+        ReadMessageSize = 0;
+        tcpdata.resize(0);
+    }
+}
+void TcpServer::TcpReadErr()
+{
+    QDataStream in(clientSocket);
+    timer->stop();
+    nextMessageSize = clientSocket->bytesAvailable();
+    //现有的数据读出，以便下次重新读取
+    in.setVersion(QDataStream::Qt_4_5);
+    char * data = new char[nextMessageSize];
+    in.readRawData(data,nextMessageSize);
+    delete []data;
+    qDebug()<<"tcp read err";
+    nextMessageSize = 0;
+    ReadMessageSize = 0;
+    tcpdata.resize(0);
+}
+void TcpServer::SendCmd(QByteArray cmd)
+{
+    QByteArray qba;
+
+    qint32 len = clientSocket->write(cmd);
+    qDebug()<<"tcp send to server:" + BgComm::ByteArrayToHexString(cmd);
+
+   // TcpRead(qba,100,10);
+    if(len < 0)
+    {
+        UserEvent * uie = new UserEvent(CR::SendtoMessage,this);
+        uie->flag = 0;
+        qApp->postEvent(fm,uie);
+       // return false;
+    }
+    else
+    {
+        //uie->flag = 1;
+        //qApp->postEvent(cf,uie);
+       // return true;
+    }
+}
+
+bool TcpServer::event(QEvent *event)
+{
+    if(event->type() == QEvent::User)
+    {
+        UserEvent * ue = static_cast<UserEvent *>(event);
+        switch(ue->userType)
+        {
+            case CR::TcpServerMsg:
+                SendCmd(ue->byteArray);
+                break;
+            default:
+                return false;
+        }
+    }
+    else
+    {
+        return QThread::event(event);
+    }
+    return true;
+}

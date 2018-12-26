@@ -1,0 +1,34 @@
+#ifndef LOGFILEPROCESS_H
+#define LOGFILEPROCESS_H
+
+#include <QThread>
+#include <QApplication>
+#include <QDebug>
+#include <QTimer>
+#include "config.h"
+#include "protocol.h"
+#include "userevent.h"
+#include "posix_qextserialport.h"
+#include "userevent.h"
+#include "dataprocess.h"
+#include <sys/statfs.h>
+#include <stdio.h>
+
+#define DISK_FREE_SIZE           800   //单位为M,即1000M=1G
+class LogFile : public QThread
+{
+    Q_OBJECT
+public:
+    explicit LogFile(QObject *parent = 0);
+
+private:
+    QObject *fm;
+    struct statfs diskInfo;
+
+    void run();
+
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // LOGFILEPROCESS_H

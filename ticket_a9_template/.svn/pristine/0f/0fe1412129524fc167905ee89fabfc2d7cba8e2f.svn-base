@@ -1,0 +1,43 @@
+#ifndef CANBUSTHREAD_H
+#define CANBUSTHREAD_H
+
+#include <QThread>
+#include <QObject>
+#include <QDebug>
+#include <QProcess>
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <linux/can.h>
+#include <sys/types.h>
+#include "dataprocess.h"
+#include "userevent.h"
+
+#ifndef PF_CAN
+#define PF_CAN 29
+#endif
+
+#ifndef AF_CAN
+#define AF_CAN PF_CAN
+#endif
+
+#define CAN_ID_SWINGGATE            0x488
+#define CAN_ID_TEMPHUM_CONTROLLER   0x445
+
+class CanBusThread : public QThread
+{
+    Q_OBJECT
+public:
+    explicit CanBusThread(QObject *parent = 0);
+private:
+    QObject *fm;
+    void run();
+    bool event(QEvent *);
+    int s;
+    void SetPer(quint8 flag, quint16 per);
+    void SetType(quint8 type);
+    void CanWrite(quint16 canid, QByteArray sendbuf);
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // CANBUSTHREAD_H

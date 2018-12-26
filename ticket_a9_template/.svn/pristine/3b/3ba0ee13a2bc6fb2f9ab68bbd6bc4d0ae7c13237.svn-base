@@ -1,0 +1,41 @@
+#ifndef LEDDISPLAY_H
+#define LEDDISPLAY_H
+
+#include <QThread>
+#include <QDebug>
+#include <QTimer>
+#include "config.h"
+#include "posix_qextserialport.h"
+#include "protocol.h"
+#include "userevent.h"
+#include "dataprocess.h"
+
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+class LedDis : public QThread
+{
+    Q_OBJECT
+public:
+    explicit LedDis(QObject *parent = 0);
+    void Dis(QByteArray);
+    void CloseCom();
+private:
+    Posix_QextSerialPort *myCom;
+    QObject *fm;
+
+    int fp;
+    bool comOpenErr;
+    void SendBuf(QByteArray buf);
+    bool IsComOnboardFlag;
+signals:
+    void TicketDebug(QString);
+};
+#endif // LEDDISPLAY_H

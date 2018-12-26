@@ -1,0 +1,122 @@
+#ifndef UDPTHREADH
+#define UDPTHREADH
+
+#include <QThread>
+#include <QtNetwork>
+#include <QProcess>
+#include <QDateTime>
+#include <QtAlgorithms>
+#include "config.h"
+
+#include "userevent.h"
+#include "dataprocess.h"
+
+#define UDPLOGMAXCNT            30
+
+#define PE9FtpPort              0xE9
+#define PE5FtpServerIp          0xE5
+#define PC0Language             0xC0
+#define P00ValueLeft            0x00
+#define P01ValueRight           0x01
+#define P02DebugEnable          0x02
+#define P03OnLineUse            0x03
+#define P04DisplayType          0x04
+#define P05GateMode             0x05
+#define P06GateType             0x06
+#define P07GateComType          0x07
+#define P08ClientNo             0x08
+#define P10ProgramVer           0x10
+#define P18DevSnr               0x18
+#define P20CheckTicketMode      0x20
+#define P21GroupInsertEnable    0x21
+#define P22PartNo               0x22
+#define P22PartNoGuid           0xEB
+#define P23GateNo               0x23
+#define P24CheckTicketType      0x24
+#define P28ImageDisGapTime      0x28
+#define P29ShowTime             0x29
+#define P2aCheckNetTime         0x2A
+#define P2bCheckTicketGapTime   0x2B
+#define P30Mac                  0x30
+#define P40HostIp               0x40
+#define P44NetMask              0x44
+#define P48GetwayIp             0x48
+#define P4CDNS                  0x4C
+#define P50ServerIp             0x50
+#define P54ServerPort           0x54
+#define P56ReServerEnable       0x56
+#define P57ReServerIp           0x57
+#define P5bReServerPort         0x5B
+#define P5dHttpPort             0x5D
+#define P70RfidEnable           0x70
+#define P71RfidDevType          0x71
+#define P72RfidTicketType       0x72
+#define P73RfidMoneyEnable      0x73
+#define P74IdCardEnable         0x74
+#define P75IdCardType           0x75
+#define P76IcPassword           0x76
+#define P90BarcodeEnable        0x90
+#define P91BarcodeDevType       0x91
+#define P92BarcodeTicketType    0x92
+#define P93BarcodeBaud          0x93
+#define P94BarcodeHead          0x94
+#define P95BarcodeEndLen        0x95
+#define P96BarcodeEndData       0x96
+#define Pb0FingerEnable         0xB0
+#define Pb1FingerDevType        0xB1
+#define Pb2FingerInTimes        0xB2
+#define Pb3FingerInTime         0xB3
+#define Pb4FingerInGrade        0xB4
+#define Pb5FingerMatchTime      0xB5
+#define Pb6FingerMatchGrade     0xB6
+#define Pd0WifiSsid             0xD0
+#define PdaWifiPassword         0xDA
+
+class UdpThread : public QThread
+{
+    Q_OBJECT
+public:
+    UdpThread(QObject * parent);
+    QByteArray xlh;
+    void saveUserBack();
+    QMutex mutex;
+private:
+    QObject *fm;
+    QUdpSocket *udpSocket;
+    QByteArray qsdata;
+    QSettings *qs;
+    quint8 p22PartNoGuidLen;
+
+    quint16 revPort;
+    quint16 sendPort;
+
+    quint8 Parameter_Verify;
+    quint16 Parameter_Length;
+
+    bool PicFlag;
+
+    QByteArray PicBuf;
+
+    QFile *WavFile;
+    QFile *PicFile;
+    QFile *UserFile;
+
+    QHostAddress UdpRecvAddr;
+    quint16 UdpRecvPort;
+    bool event(QEvent *);
+
+    void UdpInit();
+    void UdpSend(QByteArray);
+
+    QByteArray usrNameArry;
+    QMap<quint8, QString> MessageMap;
+    void MessageMapInit();
+
+    void udpMessageHandler(quint8 type, QByteArray msg);
+private slots:
+    void UdpRecv();
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // UDPTHREADH

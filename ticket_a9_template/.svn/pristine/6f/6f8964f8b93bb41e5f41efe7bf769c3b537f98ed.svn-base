@@ -1,0 +1,44 @@
+#ifndef TCPSERVER_H
+#define TCPSERVER_H
+
+#include <QThread>
+#include <QtNetwork>
+#include <QTimer>
+#include <QApplication>
+
+#include "protocol.h"
+#include "userevent.h"
+#include "dataprocess.h"
+
+class TcpServer : public QThread
+{
+    Q_OBJECT
+public:
+    explicit TcpServer(QObject *parent = 0);
+private:
+    QObject *fm;
+    QTcpServer *server;
+    QTcpSocket *clientSocket;
+
+    QByteArray TcpReadBuf;
+    quint32 nextMessageSize;
+    quint32 TotalMessageSize;
+    quint32 ReadMessageSize;
+    bool login;
+    int socketId;
+    bool StartFlag;
+    QTimer *timer;
+    QByteArray tcpdata;
+    QByteArray Checkdata;
+
+    void run();
+    bool event(QEvent *);
+    void SendCmd(QByteArray);
+private slots:
+    void clientcome();
+    void readServer();
+    void TcpReadErr();
+    void clientleave();
+};
+
+#endif // TCPSERVER_H

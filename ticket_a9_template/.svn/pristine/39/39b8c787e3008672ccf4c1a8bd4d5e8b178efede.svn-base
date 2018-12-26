@@ -1,0 +1,1140 @@
+/********************************************************************************
+** Form generated from reading UI file 'form.ui'
+**
+** Created: Tue Mar 27 18:35:54 2018
+**      by: Qt User Interface Compiler version 4.8.4
+**
+** WARNING! All changes made in this file will be lost when recompiling UI file!
+********************************************************************************/
+
+#ifndef UI_FORM_H
+#define UI_FORM_H
+
+#include <QtCore/QVariant>
+#include <QtGui/QAction>
+#include <QtGui/QApplication>
+#include <QtGui/QButtonGroup>
+#include <QtGui/QFrame>
+#include <QtGui/QGridLayout>
+#include <QtGui/QHBoxLayout>
+#include <QtGui/QHeaderView>
+#include <QtGui/QLabel>
+#include <QtGui/QSpacerItem>
+#include <QtGui/QVBoxLayout>
+#include <QtGui/QWidget>
+
+QT_BEGIN_NAMESPACE
+
+class Ui_Form
+{
+public:
+    QFrame *frame_check;
+    QGridLayout *gridLayout_2;
+    QFrame *frame_ticket;
+    QGridLayout *gridLayout_3;
+    QLabel *label_ticketnoicon;
+    QLabel *label_tickettypeicon;
+    QLabel *label_tickettimeicon;
+    QLabel *label_ticketnofield;
+    QLabel *label_tickettypefield;
+    QLabel *label_tickettimefield;
+    QLabel *label_ticketpernumfield;
+    QLabel *label_ticketno;
+    QLabel *label_tickettype;
+    QLabel *label_tickettime;
+    QLabel *label_ticketpernum;
+    QLabel *label_ticketinform;
+    QLabel *label_ticketinformicon;
+    QLabel *label_ticketpernumicon;
+    QSpacerItem *horizontalSpacer_barcode;
+    QFrame *frame_pic;
+    QVBoxLayout *verticalLayout;
+    QLabel *label_pic;
+    QLabel *label_picmsg;
+    QFrame *frame_finger;
+    QVBoxLayout *verticalLayout_2;
+    QLabel *label_finger;
+    QLabel *label_fingermsg;
+    QFrame *frame_standby;
+    QGridLayout *gridLayout_6;
+    QLabel *label_currenttime;
+    QLabel *label_currentdate;
+    QSpacerItem *verticalSpacer_3;
+    QSpacerItem *verticalSpacer_4;
+    QSpacerItem *horizontalSpacer_3;
+    QSpacerItem *horizontalSpacer_4;
+    QLabel *label_standbymsg;
+    QFrame *frame_netccd;
+    QGridLayout *gridLayout;
+    QFrame *frame_ccddebug;
+    QGridLayout *gridLayout_9;
+    QLabel *label_ccddebug;
+    QSpacerItem *horizontalSpacer_8;
+    QSpacerItem *horizontalSpacer_9;
+    QFrame *frame_netmsg;
+    QGridLayout *gridLayout_7;
+    QLabel *label_hostipfield;
+    QLabel *label_hostip;
+    QLabel *label_gatewayfield;
+    QLabel *label_macfield;
+    QLabel *label_netmsg;
+    QLabel *label_serverportfield;
+    QLabel *label_gateway;
+    QLabel *label_mac;
+    QLabel *label_serverport;
+    QLabel *label_serveripfield;
+    QLabel *label_serverip;
+    QSpacerItem *horizontalSpacer_6;
+    QSpacerItem *horizontalSpacer_7;
+    QLabel *label_ftpipfield;
+    QLabel *label_ftpip;
+    QLabel *label_ftpportfield;
+    QLabel *label_ftpport;
+    QFrame *frame_bottom;
+    QHBoxLayout *horizontalLayout_7;
+    QFrame *frame_vermsg;
+    QGridLayout *gridLayout_4;
+    QLabel *label_ipfield;
+    QLabel *label_ip;
+    QLabel *label_todaypernumfield;
+    QLabel *label_todaypernum;
+    QLabel *label_verfield;
+    QLabel *label_ver;
+    QLabel *label_parkpernumfield;
+    QLabel *label_parkpernum;
+    QSpacerItem *horizontalSpacer_2;
+    QFrame *frame_temphum;
+    QGridLayout *gridLayout_8;
+    QLabel *label_temperatureicon;
+    QLabel *label_temperature;
+    QLabel *label_humidityicon;
+    QLabel *label_humidity;
+    QLabel *label_fanicon;
+    QLabel *label_fan;
+    QLabel *label_heaticon;
+    QLabel *label_heat;
+    QFrame *frame_barcodeanddev;
+    QHBoxLayout *horizontalLayout_6;
+    QLabel *label_barcode;
+    QSpacerItem *horizontalSpacer;
+    QFrame *frame_devstate;
+    QHBoxLayout *horizontalLayout_2;
+    QLabel *label_neticon;
+    QLabel *label_fingericon;
+    QLabel *label_gateicon;
+    QLabel *label_rfidicon;
+    QLabel *label_barcodeicon;
+    QFrame *frame_top;
+    QHBoxLayout *horizontalLayout_5;
+    QFrame *frame_scenic;
+    QGridLayout *gridLayout_5;
+    QLabel *label_partnofield;
+    QLabel *label_partno;
+    QLabel *label_gatenofield;
+    QLabel *label_gateno;
+    QSpacerItem *verticalSpacer;
+    QSpacerItem *verticalSpacer_2;
+    QFrame *frame_welcome;
+    QHBoxLayout *horizontalLayout;
+    QLabel *label_wellcome;
+    QFrame *frame_systime;
+    QHBoxLayout *horizontalLayout_3;
+    QLabel *label_systime;
+
+    void setupUi(QWidget *Form)
+    {
+        if (Form->objectName().isEmpty())
+            Form->setObjectName(QString::fromUtf8("Form"));
+        Form->resize(800, 480);
+        Form->setStyleSheet(QString::fromUtf8(""));
+        frame_check = new QFrame(Form);
+        frame_check->setObjectName(QString::fromUtf8("frame_check"));
+        frame_check->setGeometry(QRect(0, 80, 800, 340));
+        frame_check->setFrameShape(QFrame::NoFrame);
+        frame_check->setFrameShadow(QFrame::Raised);
+        gridLayout_2 = new QGridLayout(frame_check);
+        gridLayout_2->setObjectName(QString::fromUtf8("gridLayout_2"));
+        frame_ticket = new QFrame(frame_check);
+        frame_ticket->setObjectName(QString::fromUtf8("frame_ticket"));
+        QSizePolicy sizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        sizePolicy.setHorizontalStretch(0);
+        sizePolicy.setVerticalStretch(0);
+        sizePolicy.setHeightForWidth(frame_ticket->sizePolicy().hasHeightForWidth());
+        frame_ticket->setSizePolicy(sizePolicy);
+        frame_ticket->setMinimumSize(QSize(400, 320));
+        frame_ticket->setMaximumSize(QSize(16777215, 320));
+        frame_ticket->setStyleSheet(QString::fromUtf8("background-color: rgba(252,252,252,70%);\n"
+"border-radius:15px;\n"
+""));
+        frame_ticket->setFrameShape(QFrame::NoFrame);
+        frame_ticket->setFrameShadow(QFrame::Raised);
+        gridLayout_3 = new QGridLayout(frame_ticket);
+        gridLayout_3->setSpacing(0);
+        gridLayout_3->setContentsMargins(0, 0, 0, 0);
+        gridLayout_3->setObjectName(QString::fromUtf8("gridLayout_3"));
+        label_ticketnoicon = new QLabel(frame_ticket);
+        label_ticketnoicon->setObjectName(QString::fromUtf8("label_ticketnoicon"));
+        QSizePolicy sizePolicy1(QSizePolicy::Fixed, QSizePolicy::Preferred);
+        sizePolicy1.setHorizontalStretch(0);
+        sizePolicy1.setVerticalStretch(0);
+        sizePolicy1.setHeightForWidth(label_ticketnoicon->sizePolicy().hasHeightForWidth());
+        label_ticketnoicon->setSizePolicy(sizePolicy1);
+        label_ticketnoicon->setMinimumSize(QSize(50, 18));
+        label_ticketnoicon->setMaximumSize(QSize(50, 16777215));
+        label_ticketnoicon->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;\n"
+"image: url(:/new/prefix1/src/icon-\347\245\250\345\217\267.png);"));
+
+        gridLayout_3->addWidget(label_ticketnoicon, 6, 0, 1, 1);
+
+        label_tickettypeicon = new QLabel(frame_ticket);
+        label_tickettypeicon->setObjectName(QString::fromUtf8("label_tickettypeicon"));
+        sizePolicy1.setHeightForWidth(label_tickettypeicon->sizePolicy().hasHeightForWidth());
+        label_tickettypeicon->setSizePolicy(sizePolicy1);
+        label_tickettypeicon->setMinimumSize(QSize(50, 18));
+        label_tickettypeicon->setMaximumSize(QSize(50, 16777215));
+        label_tickettypeicon->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;\n"
+"image: url(:/new/prefix1/src/icon-\347\245\250\345\236\213.png);"));
+
+        gridLayout_3->addWidget(label_tickettypeicon, 7, 0, 1, 1);
+
+        label_tickettimeicon = new QLabel(frame_ticket);
+        label_tickettimeicon->setObjectName(QString::fromUtf8("label_tickettimeicon"));
+        sizePolicy1.setHeightForWidth(label_tickettimeicon->sizePolicy().hasHeightForWidth());
+        label_tickettimeicon->setSizePolicy(sizePolicy1);
+        label_tickettimeicon->setMinimumSize(QSize(50, 18));
+        label_tickettimeicon->setMaximumSize(QSize(50, 16777215));
+        label_tickettimeicon->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;\n"
+"image: url(:/new/prefix1/src/icon-\346\227\266\351\227\264.png);"));
+
+        gridLayout_3->addWidget(label_tickettimeicon, 8, 0, 1, 1);
+
+        label_ticketnofield = new QLabel(frame_ticket);
+        label_ticketnofield->setObjectName(QString::fromUtf8("label_ticketnofield"));
+        QSizePolicy sizePolicy2(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        sizePolicy2.setHorizontalStretch(0);
+        sizePolicy2.setVerticalStretch(0);
+        sizePolicy2.setHeightForWidth(label_ticketnofield->sizePolicy().hasHeightForWidth());
+        label_ticketnofield->setSizePolicy(sizePolicy2);
+        label_ticketnofield->setMinimumSize(QSize(0, 0));
+        label_ticketnofield->setMaximumSize(QSize(16777215, 16777215));
+        QFont font;
+        font.setPointSize(20);
+        label_ticketnofield->setFont(font);
+        label_ticketnofield->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_3->addWidget(label_ticketnofield, 6, 1, 1, 1);
+
+        label_tickettypefield = new QLabel(frame_ticket);
+        label_tickettypefield->setObjectName(QString::fromUtf8("label_tickettypefield"));
+        sizePolicy2.setHeightForWidth(label_tickettypefield->sizePolicy().hasHeightForWidth());
+        label_tickettypefield->setSizePolicy(sizePolicy2);
+        label_tickettypefield->setMinimumSize(QSize(0, 0));
+        label_tickettypefield->setMaximumSize(QSize(16777215, 16777215));
+        label_tickettypefield->setFont(font);
+        label_tickettypefield->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_3->addWidget(label_tickettypefield, 7, 1, 1, 1);
+
+        label_tickettimefield = new QLabel(frame_ticket);
+        label_tickettimefield->setObjectName(QString::fromUtf8("label_tickettimefield"));
+        sizePolicy2.setHeightForWidth(label_tickettimefield->sizePolicy().hasHeightForWidth());
+        label_tickettimefield->setSizePolicy(sizePolicy2);
+        label_tickettimefield->setMinimumSize(QSize(0, 0));
+        label_tickettimefield->setMaximumSize(QSize(16777215, 16777215));
+        label_tickettimefield->setFont(font);
+        label_tickettimefield->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_3->addWidget(label_tickettimefield, 8, 1, 1, 1);
+
+        label_ticketpernumfield = new QLabel(frame_ticket);
+        label_ticketpernumfield->setObjectName(QString::fromUtf8("label_ticketpernumfield"));
+        sizePolicy2.setHeightForWidth(label_ticketpernumfield->sizePolicy().hasHeightForWidth());
+        label_ticketpernumfield->setSizePolicy(sizePolicy2);
+        label_ticketpernumfield->setMinimumSize(QSize(0, 0));
+        label_ticketpernumfield->setMaximumSize(QSize(16777215, 16777215));
+        label_ticketpernumfield->setFont(font);
+        label_ticketpernumfield->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_3->addWidget(label_ticketpernumfield, 9, 1, 1, 1);
+
+        label_ticketno = new QLabel(frame_ticket);
+        label_ticketno->setObjectName(QString::fromUtf8("label_ticketno"));
+        label_ticketno->setFont(font);
+        label_ticketno->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_ticketno->setMargin(10);
+
+        gridLayout_3->addWidget(label_ticketno, 6, 2, 1, 1);
+
+        label_tickettype = new QLabel(frame_ticket);
+        label_tickettype->setObjectName(QString::fromUtf8("label_tickettype"));
+        label_tickettype->setFont(font);
+        label_tickettype->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_tickettype->setMargin(10);
+
+        gridLayout_3->addWidget(label_tickettype, 7, 2, 1, 1);
+
+        label_tickettime = new QLabel(frame_ticket);
+        label_tickettime->setObjectName(QString::fromUtf8("label_tickettime"));
+        label_tickettime->setFont(font);
+        label_tickettime->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_tickettime->setMargin(10);
+
+        gridLayout_3->addWidget(label_tickettime, 8, 2, 1, 1);
+
+        label_ticketpernum = new QLabel(frame_ticket);
+        label_ticketpernum->setObjectName(QString::fromUtf8("label_ticketpernum"));
+        label_ticketpernum->setFont(font);
+        label_ticketpernum->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_ticketpernum->setMargin(10);
+
+        gridLayout_3->addWidget(label_ticketpernum, 9, 2, 1, 1);
+
+        label_ticketinform = new QLabel(frame_ticket);
+        label_ticketinform->setObjectName(QString::fromUtf8("label_ticketinform"));
+        sizePolicy.setHeightForWidth(label_ticketinform->sizePolicy().hasHeightForWidth());
+        label_ticketinform->setSizePolicy(sizePolicy);
+        label_ticketinform->setMinimumSize(QSize(0, 80));
+        label_ticketinform->setMaximumSize(QSize(16777215, 80));
+        QFont font1;
+        font1.setPointSize(72);
+        label_ticketinform->setFont(font1);
+        label_ticketinform->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_ticketinform->setAlignment(Qt::AlignCenter);
+
+        gridLayout_3->addWidget(label_ticketinform, 10, 1, 1, 3);
+
+        label_ticketinformicon = new QLabel(frame_ticket);
+        label_ticketinformicon->setObjectName(QString::fromUtf8("label_ticketinformicon"));
+        sizePolicy1.setHeightForWidth(label_ticketinformicon->sizePolicy().hasHeightForWidth());
+        label_ticketinformicon->setSizePolicy(sizePolicy1);
+        label_ticketinformicon->setMinimumSize(QSize(50, 36));
+        label_ticketinformicon->setMaximumSize(QSize(50, 16777215));
+        label_ticketinformicon->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;\n"
+"image: url(:/new/prefix1/src/icon-\346\243\200\347\245\250\347\212\266\346\200\201.png);"));
+
+        gridLayout_3->addWidget(label_ticketinformicon, 10, 0, 1, 1);
+
+        label_ticketpernumicon = new QLabel(frame_ticket);
+        label_ticketpernumicon->setObjectName(QString::fromUtf8("label_ticketpernumicon"));
+        sizePolicy1.setHeightForWidth(label_ticketpernumicon->sizePolicy().hasHeightForWidth());
+        label_ticketpernumicon->setSizePolicy(sizePolicy1);
+        label_ticketpernumicon->setMinimumSize(QSize(50, 18));
+        label_ticketpernumicon->setMaximumSize(QSize(50, 16777215));
+        label_ticketpernumicon->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;\n"
+"image: url(:/new/prefix1/src/icon-\345\267\262\346\243\200\347\245\250.png);"));
+
+        gridLayout_3->addWidget(label_ticketpernumicon, 9, 0, 1, 1);
+
+        horizontalSpacer_barcode = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        gridLayout_3->addItem(horizontalSpacer_barcode, 6, 3, 1, 1);
+
+
+        gridLayout_2->addWidget(frame_ticket, 0, 0, 2, 1);
+
+        frame_pic = new QFrame(frame_check);
+        frame_pic->setObjectName(QString::fromUtf8("frame_pic"));
+        sizePolicy.setHeightForWidth(frame_pic->sizePolicy().hasHeightForWidth());
+        frame_pic->setSizePolicy(sizePolicy);
+        frame_pic->setMinimumSize(QSize(180, 320));
+        frame_pic->setMaximumSize(QSize(16777215, 320));
+        frame_pic->setStyleSheet(QString::fromUtf8("background-color: rgba(252,252,252,70%);\n"
+"border-radius:15px;"));
+        frame_pic->setFrameShape(QFrame::NoFrame);
+        frame_pic->setFrameShadow(QFrame::Raised);
+        verticalLayout = new QVBoxLayout(frame_pic);
+        verticalLayout->setSpacing(0);
+        verticalLayout->setContentsMargins(0, 0, 0, 0);
+        verticalLayout->setObjectName(QString::fromUtf8("verticalLayout"));
+        label_pic = new QLabel(frame_pic);
+        label_pic->setObjectName(QString::fromUtf8("label_pic"));
+        sizePolicy.setHeightForWidth(label_pic->sizePolicy().hasHeightForWidth());
+        label_pic->setSizePolicy(sizePolicy);
+        label_pic->setMinimumSize(QSize(180, 240));
+        label_pic->setMaximumSize(QSize(16777215, 320));
+        label_pic->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;\n"
+""));
+        label_pic->setPixmap(QPixmap(QString::fromUtf8(":/new/prefix1/src/\346\270\270\345\256\242\344\277\241\346\201\257-\347\205\247\347\211\207.png")));
+        label_pic->setAlignment(Qt::AlignCenter);
+
+        verticalLayout->addWidget(label_pic);
+
+        label_picmsg = new QLabel(frame_pic);
+        label_picmsg->setObjectName(QString::fromUtf8("label_picmsg"));
+        sizePolicy.setHeightForWidth(label_picmsg->sizePolicy().hasHeightForWidth());
+        label_picmsg->setSizePolicy(sizePolicy);
+        label_picmsg->setMinimumSize(QSize(180, 80));
+        label_picmsg->setMaximumSize(QSize(16777215, 80));
+        QFont font2;
+        font2.setPointSize(36);
+        font2.setBold(false);
+        font2.setWeight(50);
+        label_picmsg->setFont(font2);
+        label_picmsg->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_picmsg->setLineWidth(1);
+        label_picmsg->setAlignment(Qt::AlignCenter);
+
+        verticalLayout->addWidget(label_picmsg);
+
+
+        gridLayout_2->addWidget(frame_pic, 0, 2, 2, 1);
+
+        frame_finger = new QFrame(frame_check);
+        frame_finger->setObjectName(QString::fromUtf8("frame_finger"));
+        sizePolicy.setHeightForWidth(frame_finger->sizePolicy().hasHeightForWidth());
+        frame_finger->setSizePolicy(sizePolicy);
+        frame_finger->setMinimumSize(QSize(180, 320));
+        frame_finger->setMaximumSize(QSize(16777215, 320));
+        frame_finger->setStyleSheet(QString::fromUtf8("background-color: rgba(252,252,252,70%);\n"
+"border-radius:15px;"));
+        frame_finger->setFrameShape(QFrame::NoFrame);
+        frame_finger->setFrameShadow(QFrame::Raised);
+        verticalLayout_2 = new QVBoxLayout(frame_finger);
+        verticalLayout_2->setSpacing(0);
+        verticalLayout_2->setContentsMargins(0, 0, 0, 0);
+        verticalLayout_2->setObjectName(QString::fromUtf8("verticalLayout_2"));
+        label_finger = new QLabel(frame_finger);
+        label_finger->setObjectName(QString::fromUtf8("label_finger"));
+        sizePolicy.setHeightForWidth(label_finger->sizePolicy().hasHeightForWidth());
+        label_finger->setSizePolicy(sizePolicy);
+        label_finger->setMinimumSize(QSize(180, 240));
+        label_finger->setMaximumSize(QSize(16777215, 240));
+        label_finger->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;\n"
+""));
+        label_finger->setPixmap(QPixmap(QString::fromUtf8(":/new/prefix1/src/\346\270\270\345\256\242\344\277\241\346\201\257-\346\214\207\347\272\271.png")));
+        label_finger->setAlignment(Qt::AlignCenter);
+
+        verticalLayout_2->addWidget(label_finger);
+
+        label_fingermsg = new QLabel(frame_finger);
+        label_fingermsg->setObjectName(QString::fromUtf8("label_fingermsg"));
+        sizePolicy.setHeightForWidth(label_fingermsg->sizePolicy().hasHeightForWidth());
+        label_fingermsg->setSizePolicy(sizePolicy);
+        label_fingermsg->setMinimumSize(QSize(180, 80));
+        label_fingermsg->setMaximumSize(QSize(16777215, 80));
+        QFont font3;
+        font3.setPointSize(36);
+        label_fingermsg->setFont(font3);
+        label_fingermsg->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_fingermsg->setAlignment(Qt::AlignCenter);
+
+        verticalLayout_2->addWidget(label_fingermsg);
+
+
+        gridLayout_2->addWidget(frame_finger, 0, 1, 2, 1);
+
+        frame_standby = new QFrame(Form);
+        frame_standby->setObjectName(QString::fromUtf8("frame_standby"));
+        frame_standby->setGeometry(QRect(0, 80, 800, 340));
+        frame_standby->setFrameShape(QFrame::NoFrame);
+        frame_standby->setFrameShadow(QFrame::Raised);
+        gridLayout_6 = new QGridLayout(frame_standby);
+        gridLayout_6->setObjectName(QString::fromUtf8("gridLayout_6"));
+        label_currenttime = new QLabel(frame_standby);
+        label_currenttime->setObjectName(QString::fromUtf8("label_currenttime"));
+        label_currenttime->setFont(font1);
+        label_currenttime->setFocusPolicy(Qt::NoFocus);
+        label_currenttime->setAutoFillBackground(false);
+        label_currenttime->setStyleSheet(QString::fromUtf8(""));
+        label_currenttime->setFrameShape(QFrame::NoFrame);
+        label_currenttime->setFrameShadow(QFrame::Plain);
+        label_currenttime->setMidLineWidth(0);
+        label_currenttime->setTextFormat(Qt::AutoText);
+        label_currenttime->setScaledContents(false);
+        label_currenttime->setAlignment(Qt::AlignCenter);
+        label_currenttime->setWordWrap(false);
+        label_currenttime->setOpenExternalLinks(false);
+
+        gridLayout_6->addWidget(label_currenttime, 1, 1, 1, 1);
+
+        label_currentdate = new QLabel(frame_standby);
+        label_currentdate->setObjectName(QString::fromUtf8("label_currentdate"));
+        label_currentdate->setFont(font);
+        label_currentdate->setStyleSheet(QString::fromUtf8(""));
+        label_currentdate->setAlignment(Qt::AlignCenter);
+
+        gridLayout_6->addWidget(label_currentdate, 2, 1, 1, 1);
+
+        verticalSpacer_3 = new QSpacerItem(20, 67, QSizePolicy::Minimum, QSizePolicy::Fixed);
+
+        gridLayout_6->addItem(verticalSpacer_3, 0, 1, 1, 1);
+
+        verticalSpacer_4 = new QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding);
+
+        gridLayout_6->addItem(verticalSpacer_4, 5, 1, 1, 1);
+
+        horizontalSpacer_3 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        gridLayout_6->addItem(horizontalSpacer_3, 1, 0, 1, 1);
+
+        horizontalSpacer_4 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        gridLayout_6->addItem(horizontalSpacer_4, 1, 2, 1, 1);
+
+        label_standbymsg = new QLabel(frame_standby);
+        label_standbymsg->setObjectName(QString::fromUtf8("label_standbymsg"));
+        QFont font4;
+        font4.setPointSize(48);
+        label_standbymsg->setFont(font4);
+        label_standbymsg->setAlignment(Qt::AlignCenter);
+
+        gridLayout_6->addWidget(label_standbymsg, 3, 0, 1, 3);
+
+        label_currenttime->raise();
+        label_currentdate->raise();
+        label_standbymsg->raise();
+        frame_netccd = new QFrame(Form);
+        frame_netccd->setObjectName(QString::fromUtf8("frame_netccd"));
+        frame_netccd->setGeometry(QRect(0, 80, 800, 340));
+        frame_netccd->setAutoFillBackground(false);
+        frame_netccd->setStyleSheet(QString::fromUtf8(""));
+        frame_netccd->setFrameShape(QFrame::NoFrame);
+        frame_netccd->setFrameShadow(QFrame::Raised);
+        gridLayout = new QGridLayout(frame_netccd);
+        gridLayout->setSpacing(6);
+        gridLayout->setObjectName(QString::fromUtf8("gridLayout"));
+        gridLayout->setContentsMargins(9, 10, 9, 10);
+        frame_ccddebug = new QFrame(frame_netccd);
+        frame_ccddebug->setObjectName(QString::fromUtf8("frame_ccddebug"));
+        sizePolicy2.setHeightForWidth(frame_ccddebug->sizePolicy().hasHeightForWidth());
+        frame_ccddebug->setSizePolicy(sizePolicy2);
+        frame_ccddebug->setMinimumSize(QSize(388, 0));
+        frame_ccddebug->setMaximumSize(QSize(388, 16777215));
+        frame_ccddebug->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,70%);\n"
+"border-radius:15px;"));
+        frame_ccddebug->setFrameShape(QFrame::NoFrame);
+        frame_ccddebug->setFrameShadow(QFrame::Raised);
+        gridLayout_9 = new QGridLayout(frame_ccddebug);
+        gridLayout_9->setObjectName(QString::fromUtf8("gridLayout_9"));
+        gridLayout_9->setContentsMargins(4, 9, 4, 9);
+        label_ccddebug = new QLabel(frame_ccddebug);
+        label_ccddebug->setObjectName(QString::fromUtf8("label_ccddebug"));
+        label_ccddebug->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);\n"
+"border-radius:0px;"));
+        label_ccddebug->setAlignment(Qt::AlignCenter);
+
+        gridLayout_9->addWidget(label_ccddebug, 0, 1, 1, 1);
+
+        horizontalSpacer_8 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        gridLayout_9->addItem(horizontalSpacer_8, 0, 2, 1, 1);
+
+        horizontalSpacer_9 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        gridLayout_9->addItem(horizontalSpacer_9, 0, 0, 1, 1);
+
+
+        gridLayout->addWidget(frame_ccddebug, 0, 1, 6, 1);
+
+        frame_netmsg = new QFrame(frame_netccd);
+        frame_netmsg->setObjectName(QString::fromUtf8("frame_netmsg"));
+        sizePolicy2.setHeightForWidth(frame_netmsg->sizePolicy().hasHeightForWidth());
+        frame_netmsg->setSizePolicy(sizePolicy2);
+        frame_netmsg->setMinimumSize(QSize(0, 0));
+        frame_netmsg->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,70%);\n"
+"border-radius:15px;"));
+        frame_netmsg->setFrameShape(QFrame::NoFrame);
+        frame_netmsg->setFrameShadow(QFrame::Raised);
+        gridLayout_7 = new QGridLayout(frame_netmsg);
+        gridLayout_7->setSpacing(0);
+#ifndef Q_OS_MAC
+        gridLayout_7->setContentsMargins(9, 9, 9, 9);
+#endif
+        gridLayout_7->setObjectName(QString::fromUtf8("gridLayout_7"));
+        label_hostipfield = new QLabel(frame_netmsg);
+        label_hostipfield->setObjectName(QString::fromUtf8("label_hostipfield"));
+        sizePolicy2.setHeightForWidth(label_hostipfield->sizePolicy().hasHeightForWidth());
+        label_hostipfield->setSizePolicy(sizePolicy2);
+        label_hostipfield->setMinimumSize(QSize(0, 0));
+        label_hostipfield->setFont(font);
+        label_hostipfield->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_hostipfield->setAlignment(Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_7->addWidget(label_hostipfield, 0, 1, 1, 1);
+
+        label_hostip = new QLabel(frame_netmsg);
+        label_hostip->setObjectName(QString::fromUtf8("label_hostip"));
+        QFont font5;
+        font5.setPointSize(18);
+        label_hostip->setFont(font5);
+        label_hostip->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_7->addWidget(label_hostip, 0, 2, 1, 1);
+
+        label_gatewayfield = new QLabel(frame_netmsg);
+        label_gatewayfield->setObjectName(QString::fromUtf8("label_gatewayfield"));
+        sizePolicy2.setHeightForWidth(label_gatewayfield->sizePolicy().hasHeightForWidth());
+        label_gatewayfield->setSizePolicy(sizePolicy2);
+        label_gatewayfield->setMinimumSize(QSize(0, 0));
+        label_gatewayfield->setFont(font);
+        label_gatewayfield->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_gatewayfield->setAlignment(Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_7->addWidget(label_gatewayfield, 7, 1, 1, 1);
+
+        label_macfield = new QLabel(frame_netmsg);
+        label_macfield->setObjectName(QString::fromUtf8("label_macfield"));
+        sizePolicy2.setHeightForWidth(label_macfield->sizePolicy().hasHeightForWidth());
+        label_macfield->setSizePolicy(sizePolicy2);
+        label_macfield->setMinimumSize(QSize(0, 0));
+        label_macfield->setFont(font);
+        label_macfield->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_macfield->setAlignment(Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_7->addWidget(label_macfield, 8, 1, 1, 1);
+
+        label_netmsg = new QLabel(frame_netmsg);
+        label_netmsg->setObjectName(QString::fromUtf8("label_netmsg"));
+        sizePolicy2.setHeightForWidth(label_netmsg->sizePolicy().hasHeightForWidth());
+        label_netmsg->setSizePolicy(sizePolicy2);
+        label_netmsg->setMinimumSize(QSize(0, 0));
+        label_netmsg->setFont(font4);
+        label_netmsg->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_netmsg->setAlignment(Qt::AlignCenter);
+
+        gridLayout_7->addWidget(label_netmsg, 9, 0, 1, 4);
+
+        label_serverportfield = new QLabel(frame_netmsg);
+        label_serverportfield->setObjectName(QString::fromUtf8("label_serverportfield"));
+        sizePolicy1.setHeightForWidth(label_serverportfield->sizePolicy().hasHeightForWidth());
+        label_serverportfield->setSizePolicy(sizePolicy1);
+        label_serverportfield->setMinimumSize(QSize(0, 0));
+        label_serverportfield->setFont(font);
+        label_serverportfield->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_serverportfield->setAlignment(Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_7->addWidget(label_serverportfield, 4, 1, 1, 1);
+
+        label_gateway = new QLabel(frame_netmsg);
+        label_gateway->setObjectName(QString::fromUtf8("label_gateway"));
+        label_gateway->setFont(font5);
+        label_gateway->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_7->addWidget(label_gateway, 7, 2, 1, 1);
+
+        label_mac = new QLabel(frame_netmsg);
+        label_mac->setObjectName(QString::fromUtf8("label_mac"));
+        label_mac->setFont(font5);
+        label_mac->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_7->addWidget(label_mac, 8, 2, 1, 1);
+
+        label_serverport = new QLabel(frame_netmsg);
+        label_serverport->setObjectName(QString::fromUtf8("label_serverport"));
+        label_serverport->setFont(font5);
+        label_serverport->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_7->addWidget(label_serverport, 4, 2, 1, 1);
+
+        label_serveripfield = new QLabel(frame_netmsg);
+        label_serveripfield->setObjectName(QString::fromUtf8("label_serveripfield"));
+        sizePolicy2.setHeightForWidth(label_serveripfield->sizePolicy().hasHeightForWidth());
+        label_serveripfield->setSizePolicy(sizePolicy2);
+        label_serveripfield->setMinimumSize(QSize(0, 0));
+        label_serveripfield->setFont(font);
+        label_serveripfield->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+        label_serveripfield->setAlignment(Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_7->addWidget(label_serveripfield, 3, 1, 1, 1);
+
+        label_serverip = new QLabel(frame_netmsg);
+        label_serverip->setObjectName(QString::fromUtf8("label_serverip"));
+        label_serverip->setFont(font5);
+        label_serverip->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_7->addWidget(label_serverip, 3, 2, 1, 1);
+
+        horizontalSpacer_6 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        gridLayout_7->addItem(horizontalSpacer_6, 3, 0, 1, 1);
+
+        horizontalSpacer_7 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        gridLayout_7->addItem(horizontalSpacer_7, 3, 3, 1, 1);
+
+        label_ftpipfield = new QLabel(frame_netmsg);
+        label_ftpipfield->setObjectName(QString::fromUtf8("label_ftpipfield"));
+        label_ftpipfield->setFont(font);
+        label_ftpipfield->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_7->addWidget(label_ftpipfield, 5, 1, 1, 1);
+
+        label_ftpip = new QLabel(frame_netmsg);
+        label_ftpip->setObjectName(QString::fromUtf8("label_ftpip"));
+        label_ftpip->setFont(font5);
+        label_ftpip->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_7->addWidget(label_ftpip, 5, 2, 1, 1);
+
+        label_ftpportfield = new QLabel(frame_netmsg);
+        label_ftpportfield->setObjectName(QString::fromUtf8("label_ftpportfield"));
+        label_ftpportfield->setFont(font);
+        label_ftpportfield->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_7->addWidget(label_ftpportfield, 6, 1, 1, 1);
+
+        label_ftpport = new QLabel(frame_netmsg);
+        label_ftpport->setObjectName(QString::fromUtf8("label_ftpport"));
+        label_ftpport->setFont(font5);
+        label_ftpport->setStyleSheet(QString::fromUtf8("background-color: rgba(200,200,200,0);\n"
+"border-radius:0px;"));
+
+        gridLayout_7->addWidget(label_ftpport, 6, 2, 1, 1);
+
+
+        gridLayout->addWidget(frame_netmsg, 0, 0, 6, 1);
+
+        frame_bottom = new QFrame(Form);
+        frame_bottom->setObjectName(QString::fromUtf8("frame_bottom"));
+        frame_bottom->setGeometry(QRect(0, 420, 800, 60));
+        frame_bottom->setStyleSheet(QString::fromUtf8("border-radius:0px;"));
+        horizontalLayout_7 = new QHBoxLayout(frame_bottom);
+        horizontalLayout_7->setSpacing(0);
+        horizontalLayout_7->setContentsMargins(0, 0, 0, 0);
+        horizontalLayout_7->setObjectName(QString::fromUtf8("horizontalLayout_7"));
+        frame_vermsg = new QFrame(frame_bottom);
+        frame_vermsg->setObjectName(QString::fromUtf8("frame_vermsg"));
+        frame_vermsg->setEnabled(true);
+        frame_vermsg->setAutoFillBackground(false);
+        frame_vermsg->setFrameShape(QFrame::NoFrame);
+        frame_vermsg->setFrameShadow(QFrame::Raised);
+        gridLayout_4 = new QGridLayout(frame_vermsg);
+        gridLayout_4->setObjectName(QString::fromUtf8("gridLayout_4"));
+        label_ipfield = new QLabel(frame_vermsg);
+        label_ipfield->setObjectName(QString::fromUtf8("label_ipfield"));
+        sizePolicy1.setHeightForWidth(label_ipfield->sizePolicy().hasHeightForWidth());
+        label_ipfield->setSizePolicy(sizePolicy1);
+        QFont font6;
+        font6.setBold(true);
+        font6.setWeight(75);
+        label_ipfield->setFont(font6);
+        label_ipfield->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_4->addWidget(label_ipfield, 0, 0, 1, 1);
+
+        label_ip = new QLabel(frame_vermsg);
+        label_ip->setObjectName(QString::fromUtf8("label_ip"));
+        label_ip->setFont(font6);
+        label_ip->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_4->addWidget(label_ip, 0, 1, 1, 1);
+
+        label_todaypernumfield = new QLabel(frame_vermsg);
+        label_todaypernumfield->setObjectName(QString::fromUtf8("label_todaypernumfield"));
+        sizePolicy1.setHeightForWidth(label_todaypernumfield->sizePolicy().hasHeightForWidth());
+        label_todaypernumfield->setSizePolicy(sizePolicy1);
+        label_todaypernumfield->setFont(font6);
+        label_todaypernumfield->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_4->addWidget(label_todaypernumfield, 0, 2, 1, 1);
+
+        label_todaypernum = new QLabel(frame_vermsg);
+        label_todaypernum->setObjectName(QString::fromUtf8("label_todaypernum"));
+        label_todaypernum->setFont(font6);
+        label_todaypernum->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_4->addWidget(label_todaypernum, 0, 3, 1, 1);
+
+        label_verfield = new QLabel(frame_vermsg);
+        label_verfield->setObjectName(QString::fromUtf8("label_verfield"));
+        sizePolicy1.setHeightForWidth(label_verfield->sizePolicy().hasHeightForWidth());
+        label_verfield->setSizePolicy(sizePolicy1);
+        label_verfield->setMaximumSize(QSize(16777215, 16777215));
+        label_verfield->setFont(font6);
+        label_verfield->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_4->addWidget(label_verfield, 1, 0, 1, 1);
+
+        label_ver = new QLabel(frame_vermsg);
+        label_ver->setObjectName(QString::fromUtf8("label_ver"));
+        label_ver->setFont(font6);
+        label_ver->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_4->addWidget(label_ver, 1, 1, 1, 1);
+
+        label_parkpernumfield = new QLabel(frame_vermsg);
+        label_parkpernumfield->setObjectName(QString::fromUtf8("label_parkpernumfield"));
+        sizePolicy1.setHeightForWidth(label_parkpernumfield->sizePolicy().hasHeightForWidth());
+        label_parkpernumfield->setSizePolicy(sizePolicy1);
+        label_parkpernumfield->setFont(font6);
+        label_parkpernumfield->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_4->addWidget(label_parkpernumfield, 1, 2, 1, 1);
+
+        label_parkpernum = new QLabel(frame_vermsg);
+        label_parkpernum->setObjectName(QString::fromUtf8("label_parkpernum"));
+        label_parkpernum->setFont(font6);
+        label_parkpernum->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_4->addWidget(label_parkpernum, 1, 3, 1, 1);
+
+        horizontalSpacer_2 = new QSpacerItem(0, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        gridLayout_4->addItem(horizontalSpacer_2, 0, 4, 1, 1);
+
+
+        horizontalLayout_7->addWidget(frame_vermsg);
+
+        frame_temphum = new QFrame(frame_bottom);
+        frame_temphum->setObjectName(QString::fromUtf8("frame_temphum"));
+        frame_temphum->setMinimumSize(QSize(170, 60));
+        frame_temphum->setMaximumSize(QSize(170, 60));
+        frame_temphum->setStyleSheet(QString::fromUtf8(""));
+        frame_temphum->setFrameShape(QFrame::NoFrame);
+        frame_temphum->setFrameShadow(QFrame::Raised);
+        gridLayout_8 = new QGridLayout(frame_temphum);
+        gridLayout_8->setObjectName(QString::fromUtf8("gridLayout_8"));
+        label_temperatureicon = new QLabel(frame_temphum);
+        label_temperatureicon->setObjectName(QString::fromUtf8("label_temperatureicon"));
+        label_temperatureicon->setStyleSheet(QString::fromUtf8("image: url(:/new/prefix1/src/icon-\346\270\251\345\272\246.png);\n"
+"background-color: rgba(230,230,230,0);"));
+
+        gridLayout_8->addWidget(label_temperatureicon, 0, 0, 1, 1);
+
+        label_temperature = new QLabel(frame_temphum);
+        label_temperature->setObjectName(QString::fromUtf8("label_temperature"));
+        label_temperature->setMinimumSize(QSize(50, 16));
+        label_temperature->setFont(font6);
+        label_temperature->setAutoFillBackground(false);
+        label_temperature->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_8->addWidget(label_temperature, 0, 1, 1, 1);
+
+        label_humidityicon = new QLabel(frame_temphum);
+        label_humidityicon->setObjectName(QString::fromUtf8("label_humidityicon"));
+        label_humidityicon->setStyleSheet(QString::fromUtf8("image: url(:/new/prefix1/src/icon-\346\271\277\345\272\246.png);\n"
+"background-color: rgba(230,230,230,0);"));
+
+        gridLayout_8->addWidget(label_humidityicon, 0, 2, 1, 1);
+
+        label_humidity = new QLabel(frame_temphum);
+        label_humidity->setObjectName(QString::fromUtf8("label_humidity"));
+        label_humidity->setMinimumSize(QSize(50, 16));
+        label_humidity->setFont(font6);
+        label_humidity->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_8->addWidget(label_humidity, 0, 3, 1, 1);
+
+        label_fanicon = new QLabel(frame_temphum);
+        label_fanicon->setObjectName(QString::fromUtf8("label_fanicon"));
+        label_fanicon->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+        label_fanicon->setPixmap(QPixmap(QString::fromUtf8(":/new/prefix1/src/icon-\351\231\215\346\270\251.png")));
+
+        gridLayout_8->addWidget(label_fanicon, 1, 0, 1, 1);
+
+        label_fan = new QLabel(frame_temphum);
+        label_fan->setObjectName(QString::fromUtf8("label_fan"));
+        label_fan->setMinimumSize(QSize(50, 16));
+        label_fan->setFont(font6);
+        label_fan->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_8->addWidget(label_fan, 1, 1, 1, 1);
+
+        label_heaticon = new QLabel(frame_temphum);
+        label_heaticon->setObjectName(QString::fromUtf8("label_heaticon"));
+        label_heaticon->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+        label_heaticon->setPixmap(QPixmap(QString::fromUtf8(":/new/prefix1/src/icon-\345\212\240\347\203\255.png")));
+
+        gridLayout_8->addWidget(label_heaticon, 1, 2, 1, 1);
+
+        label_heat = new QLabel(frame_temphum);
+        label_heat->setObjectName(QString::fromUtf8("label_heat"));
+        label_heat->setMinimumSize(QSize(50, 16));
+        label_heat->setFont(font6);
+        label_heat->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);\n"
+""));
+
+        gridLayout_8->addWidget(label_heat, 1, 3, 1, 1);
+
+
+        horizontalLayout_7->addWidget(frame_temphum);
+
+        frame_barcodeanddev = new QFrame(frame_bottom);
+        frame_barcodeanddev->setObjectName(QString::fromUtf8("frame_barcodeanddev"));
+        horizontalLayout_6 = new QHBoxLayout(frame_barcodeanddev);
+        horizontalLayout_6->setObjectName(QString::fromUtf8("horizontalLayout_6"));
+        label_barcode = new QLabel(frame_barcodeanddev);
+        label_barcode->setObjectName(QString::fromUtf8("label_barcode"));
+        label_barcode->setFont(font6);
+        label_barcode->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        horizontalLayout_6->addWidget(label_barcode);
+
+        horizontalSpacer = new QSpacerItem(0, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        horizontalLayout_6->addItem(horizontalSpacer);
+
+        frame_devstate = new QFrame(frame_barcodeanddev);
+        frame_devstate->setObjectName(QString::fromUtf8("frame_devstate"));
+        frame_devstate->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+        frame_devstate->setFrameShape(QFrame::NoFrame);
+        frame_devstate->setFrameShadow(QFrame::Raised);
+        horizontalLayout_2 = new QHBoxLayout(frame_devstate);
+        horizontalLayout_2->setObjectName(QString::fromUtf8("horizontalLayout_2"));
+        label_neticon = new QLabel(frame_devstate);
+        label_neticon->setObjectName(QString::fromUtf8("label_neticon"));
+        label_neticon->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+        label_neticon->setPixmap(QPixmap(QString::fromUtf8(":/new/prefix1/src/\347\212\266\346\200\201-\346\234\211\347\272\277\350\277\236\346\216\245.png")));
+
+        horizontalLayout_2->addWidget(label_neticon);
+
+        label_fingericon = new QLabel(frame_devstate);
+        label_fingericon->setObjectName(QString::fromUtf8("label_fingericon"));
+        label_fingericon->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+        label_fingericon->setPixmap(QPixmap(QString::fromUtf8(":/new/prefix1/src/\347\212\266\346\200\201-\346\214\207\347\272\271.png")));
+
+        horizontalLayout_2->addWidget(label_fingericon);
+
+        label_gateicon = new QLabel(frame_devstate);
+        label_gateicon->setObjectName(QString::fromUtf8("label_gateicon"));
+        label_gateicon->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+        label_gateicon->setPixmap(QPixmap(QString::fromUtf8(":/new/prefix1/src/\347\212\266\346\200\201-\346\211\207\345\275\242\351\227\270\346\234\272.png")));
+
+        horizontalLayout_2->addWidget(label_gateicon);
+
+        label_rfidicon = new QLabel(frame_devstate);
+        label_rfidicon->setObjectName(QString::fromUtf8("label_rfidicon"));
+        label_rfidicon->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+        label_rfidicon->setPixmap(QPixmap(QString::fromUtf8(":/new/prefix1/src/\347\212\266\346\200\201-\350\272\253\344\273\275\350\257\201.png")));
+
+        horizontalLayout_2->addWidget(label_rfidicon);
+
+        label_barcodeicon = new QLabel(frame_devstate);
+        label_barcodeicon->setObjectName(QString::fromUtf8("label_barcodeicon"));
+        label_barcodeicon->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+        label_barcodeicon->setPixmap(QPixmap(QString::fromUtf8(":/new/prefix1/src/\347\212\266\346\200\201-\351\227\250\347\245\250.png")));
+
+        horizontalLayout_2->addWidget(label_barcodeicon);
+
+
+        horizontalLayout_6->addWidget(frame_devstate);
+
+
+        horizontalLayout_7->addWidget(frame_barcodeanddev);
+
+        frame_top = new QFrame(Form);
+        frame_top->setObjectName(QString::fromUtf8("frame_top"));
+        frame_top->setGeometry(QRect(0, 0, 800, 80));
+        frame_top->setStyleSheet(QString::fromUtf8("border-radius:0px;"));
+        horizontalLayout_5 = new QHBoxLayout(frame_top);
+        horizontalLayout_5->setSpacing(0);
+        horizontalLayout_5->setContentsMargins(0, 0, 0, 0);
+        horizontalLayout_5->setObjectName(QString::fromUtf8("horizontalLayout_5"));
+        frame_scenic = new QFrame(frame_top);
+        frame_scenic->setObjectName(QString::fromUtf8("frame_scenic"));
+        frame_scenic->setMinimumSize(QSize(177, 0));
+        frame_scenic->setMaximumSize(QSize(177, 16777215));
+        frame_scenic->setFrameShape(QFrame::NoFrame);
+        frame_scenic->setFrameShadow(QFrame::Raised);
+        gridLayout_5 = new QGridLayout(frame_scenic);
+        gridLayout_5->setObjectName(QString::fromUtf8("gridLayout_5"));
+        label_partnofield = new QLabel(frame_scenic);
+        label_partnofield->setObjectName(QString::fromUtf8("label_partnofield"));
+        sizePolicy1.setHeightForWidth(label_partnofield->sizePolicy().hasHeightForWidth());
+        label_partnofield->setSizePolicy(sizePolicy1);
+        QFont font7;
+        font7.setPointSize(16);
+        label_partnofield->setFont(font7);
+        label_partnofield->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_5->addWidget(label_partnofield, 1, 0, 1, 1);
+
+        label_partno = new QLabel(frame_scenic);
+        label_partno->setObjectName(QString::fromUtf8("label_partno"));
+        label_partno->setFont(font7);
+        label_partno->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_5->addWidget(label_partno, 1, 1, 1, 1);
+
+        label_gatenofield = new QLabel(frame_scenic);
+        label_gatenofield->setObjectName(QString::fromUtf8("label_gatenofield"));
+        sizePolicy1.setHeightForWidth(label_gatenofield->sizePolicy().hasHeightForWidth());
+        label_gatenofield->setSizePolicy(sizePolicy1);
+        label_gatenofield->setFont(font7);
+        label_gatenofield->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_5->addWidget(label_gatenofield, 2, 0, 1, 1);
+
+        label_gateno = new QLabel(frame_scenic);
+        label_gateno->setObjectName(QString::fromUtf8("label_gateno"));
+        label_gateno->setFont(font7);
+        label_gateno->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+
+        gridLayout_5->addWidget(label_gateno, 2, 1, 1, 1);
+
+        verticalSpacer = new QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding);
+
+        gridLayout_5->addItem(verticalSpacer, 0, 1, 1, 1);
+
+        verticalSpacer_2 = new QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding);
+
+        gridLayout_5->addItem(verticalSpacer_2, 3, 1, 1, 1);
+
+
+        horizontalLayout_5->addWidget(frame_scenic);
+
+        frame_welcome = new QFrame(frame_top);
+        frame_welcome->setObjectName(QString::fromUtf8("frame_welcome"));
+        frame_welcome->setFrameShape(QFrame::NoFrame);
+        frame_welcome->setFrameShadow(QFrame::Raised);
+        horizontalLayout = new QHBoxLayout(frame_welcome);
+        horizontalLayout->setSpacing(0);
+        horizontalLayout->setContentsMargins(0, 0, 0, 0);
+        horizontalLayout->setObjectName(QString::fromUtf8("horizontalLayout"));
+        label_wellcome = new QLabel(frame_welcome);
+        label_wellcome->setObjectName(QString::fromUtf8("label_wellcome"));
+        label_wellcome->setFont(font4);
+        label_wellcome->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+        label_wellcome->setAlignment(Qt::AlignCenter);
+
+        horizontalLayout->addWidget(label_wellcome);
+
+
+        horizontalLayout_5->addWidget(frame_welcome);
+
+        frame_systime = new QFrame(frame_top);
+        frame_systime->setObjectName(QString::fromUtf8("frame_systime"));
+        frame_systime->setMinimumSize(QSize(177, 0));
+        frame_systime->setMaximumSize(QSize(177, 16777215));
+        frame_systime->setFrameShape(QFrame::NoFrame);
+        frame_systime->setFrameShadow(QFrame::Raised);
+        horizontalLayout_3 = new QHBoxLayout(frame_systime);
+        horizontalLayout_3->setObjectName(QString::fromUtf8("horizontalLayout_3"));
+        label_systime = new QLabel(frame_systime);
+        label_systime->setObjectName(QString::fromUtf8("label_systime"));
+        QFont font8;
+        font8.setFamily(QString::fromUtf8("Ubuntu"));
+        font8.setPointSize(16);
+        label_systime->setFont(font8);
+        label_systime->setStyleSheet(QString::fromUtf8("background-color: rgba(230,230,230,0);"));
+        label_systime->setAlignment(Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter);
+
+        horizontalLayout_3->addWidget(label_systime);
+
+
+        horizontalLayout_5->addWidget(frame_systime);
+
+        frame_bottom->raise();
+        frame_top->raise();
+        frame_netccd->raise();
+        frame_check->raise();
+        frame_standby->raise();
+
+        retranslateUi(Form);
+
+        QMetaObject::connectSlotsByName(Form);
+    } // setupUi
+
+    void retranslateUi(QWidget *Form)
+    {
+        Form->setWindowTitle(QApplication::translate("Form", "Form", 0, QApplication::UnicodeUTF8));
+        label_ticketnoicon->setText(QString());
+        label_tickettypeicon->setText(QString());
+        label_tickettimeicon->setText(QString());
+        label_ticketnofield->setText(QApplication::translate("Form", "\347\245\250\345\217\267", 0, QApplication::UnicodeUTF8));
+        label_tickettypefield->setText(QApplication::translate("Form", "\347\245\250\345\236\213", 0, QApplication::UnicodeUTF8));
+        label_tickettimefield->setText(QApplication::translate("Form", "\346\227\266\351\227\264", 0, QApplication::UnicodeUTF8));
+        label_ticketpernumfield->setText(QApplication::translate("Form", "\345\267\262\346\243\200\347\245\250", 0, QApplication::UnicodeUTF8));
+        label_ticketno->setText(QString());
+        label_tickettype->setText(QString());
+        label_tickettime->setText(QString());
+        label_ticketpernum->setText(QString());
+        label_ticketinform->setText(QApplication::translate("Form", "\345\211\2510", 0, QApplication::UnicodeUTF8));
+        label_ticketinformicon->setText(QString());
+        label_ticketpernumicon->setText(QString());
+        label_pic->setText(QString());
+        label_picmsg->setText(QApplication::translate("Form", "\347\205\247\347\211\207\346\225\260\346\215\256", 0, QApplication::UnicodeUTF8));
+        label_finger->setText(QString());
+        label_fingermsg->setText(QApplication::translate("Form", "\346\214\207\347\272\271\346\225\260\346\215\256", 0, QApplication::UnicodeUTF8));
+        label_currenttime->setText(QApplication::translate("Form", "15:13", 0, QApplication::UnicodeUTF8));
+        label_currentdate->setText(QApplication::translate("Form", "\346\230\237\346\234\237\345\233\233\n"
+"2016-10-10", 0, QApplication::UnicodeUTF8));
+        label_standbymsg->setText(QString());
+        label_ccddebug->setText(QApplication::translate("Form", "\346\221\204\345\203\217\345\244\264\350\260\203\350\257\225\347\225\214\351\235\242", 0, QApplication::UnicodeUTF8));
+        label_hostipfield->setText(QApplication::translate("Form", "\346\234\254\346\234\272IP\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_hostip->setText(QString());
+        label_gatewayfield->setText(QApplication::translate("Form", "\347\275\221\345\205\263\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_macfield->setText(QApplication::translate("Form", "MAC\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_netmsg->setText(QApplication::translate("Form", "\346\243\200\346\237\245\347\275\221\347\273\234\345\217\202\346\225\260", 0, QApplication::UnicodeUTF8));
+        label_serverportfield->setText(QApplication::translate("Form", "\346\234\215\345\212\241\345\231\250\347\253\257\345\217\243\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_gateway->setText(QString());
+        label_mac->setText(QString());
+        label_serverport->setText(QString());
+        label_serveripfield->setText(QApplication::translate("Form", "\346\234\215\345\212\241\345\231\250\345\234\260\345\235\200\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_serverip->setText(QString());
+        label_ftpipfield->setText(QApplication::translate("Form", "FTP\345\234\260\345\235\200\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_ftpip->setText(QString());
+        label_ftpportfield->setText(QApplication::translate("Form", "FTP\347\253\257\345\217\243\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_ftpport->setText(QString());
+        label_ipfield->setText(QApplication::translate("Form", "IP\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_ip->setText(QApplication::translate("Form", "8.8.8.8", 0, QApplication::UnicodeUTF8));
+        label_todaypernumfield->setText(QApplication::translate("Form", "\345\275\223\346\227\245\344\272\272\346\225\260\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_todaypernum->setText(QApplication::translate("Form", "888", 0, QApplication::UnicodeUTF8));
+        label_verfield->setText(QApplication::translate("Form", "\347\211\210\346\234\254\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_ver->setText(QApplication::translate("Form", "1.0.0", 0, QApplication::UnicodeUTF8));
+        label_parkpernumfield->setText(QApplication::translate("Form", "\345\234\250\345\233\255\344\272\272\346\225\260\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_parkpernum->setText(QApplication::translate("Form", "888", 0, QApplication::UnicodeUTF8));
+        label_temperatureicon->setText(QString());
+        label_temperature->setText(QApplication::translate("Form", "-25.5\342\204\203", 0, QApplication::UnicodeUTF8));
+        label_humidityicon->setText(QString());
+        label_humidity->setText(QApplication::translate("Form", "50%", 0, QApplication::UnicodeUTF8));
+        label_fanicon->setText(QString());
+        label_fan->setText(QApplication::translate("Form", "\351\243\216\346\211\207", 0, QApplication::UnicodeUTF8));
+        label_heaticon->setText(QString());
+        label_heat->setText(QApplication::translate("Form", "\345\212\240\347\203\255", 0, QApplication::UnicodeUTF8));
+        label_barcode->setText(QString());
+        label_neticon->setText(QString());
+        label_fingericon->setText(QString());
+        label_gateicon->setText(QString());
+        label_rfidicon->setText(QString());
+        label_barcodeicon->setText(QString());
+        label_partnofield->setText(QApplication::translate("Form", "\346\231\257\347\202\271\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_partno->setText(QString());
+        label_gatenofield->setText(QApplication::translate("Form", "\351\200\232\351\201\223\357\274\232", 0, QApplication::UnicodeUTF8));
+        label_gateno->setText(QString());
+        label_wellcome->setText(QApplication::translate("Form", "\346\267\261\345\244\247\346\231\272\350\203\275\346\254\242\350\277\216\346\202\250", 0, QApplication::UnicodeUTF8));
+        label_systime->setText(QApplication::translate("Form", "2016\345\271\26410\346\234\21020\346\227\245\n"
+"\346\230\237\346\234\237\345\233\233 11:43:55", 0, QApplication::UnicodeUTF8));
+    } // retranslateUi
+
+};
+
+namespace Ui {
+    class Form: public Ui_Form {};
+} // namespace Ui
+
+QT_END_NAMESPACE
+
+#endif // UI_FORM_H

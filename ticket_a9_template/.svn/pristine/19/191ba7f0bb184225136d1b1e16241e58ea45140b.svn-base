@@ -1,0 +1,24 @@
+#ifndef DATAPROCESS_H
+#define DATAPROCESS_H
+#include <QtGui>
+#include <QString>
+#include <QByteArray>
+#include <QStringList>
+#include <QDebug>
+
+namespace BgComm
+{
+    QString ByteArrayToString(QByteArray ascii, int base=16, bool chEn=false, const QChar &ch=QChar(' '), int n=2);
+    QString FormatString(QString org, int n=2, const QChar &ch=QChar(' '));
+    QByteArray StringToByteArray(QString str, int base=10, const QChar &ch=QChar(' '));
+
+    quint8 SUMVerify(QByteArray buf);
+    quint8 XORVerify(QByteArray buf);
+    QByteArray StringToHex(QString);
+    QString GetSpecificStr(QString cmd, QString c, quint8 i);
+
+    bool IsLeapYear(quint16 year);
+    bool CheckDate(quint16 year, qint8 month, qint8 day);
+}
+
+#endif // COMM_H

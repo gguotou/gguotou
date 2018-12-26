@@ -1,0 +1,175 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#include "standardversioncode.h"
+
+//每次修改应用程序后，必须修改对应的APP_VERSION_CODE和APP_NAME！！！
+#define APP_VERSION_CODE        STANDARD_VERSION_CODE
+#define APP_NAME                "app"
+//注：使用SDE_GA502_1_3 和 SDE_GA503_1_0时，pro中注释维尔动态库，工具链(4.8.5)，清空arm_build编译文件,删除hid-libusb.c;
+//使用人脸模式时，注意串口分配;选择SDE_GA503_1_0时，注意串口数量!!!!!!!人脸用串口1,不使用指纹5！！！！
+#define SDE_GA501_1_1           1
+#define SDE_GA501_1_2           2
+#define SDE_GA501_1_3           3
+#define SDE_GA501_1_4           4
+#define SDE_GA502_1_3           5
+#define SDE_GA503_1_0           6
+#define HARDWAREVER             SDE_GA501_1_4
+
+#define ONBOARDFLASH            0
+#define SD                      1
+#define STORAGEPATH             ONBOARDFLASH
+
+#if STORAGEPATH == SD
+#define QS_FILEPATH             "/medina/mmcblk1p1/opt/config/user.conf"
+#define QGUOREN_FILEPATH        "/media/mmcblk1p1/opt/config/guoren.conf"
+#define QPASSNUM_FILEPATH       "/media/mmcblk1p1/tmp/passnum.conf"
+
+#define BGPIX_FILEPATH          "/media/mmcblk1p1/opt/pic/image.jpg"
+#define PGPIX_JPG_FILEPATH      "/media/mmcblk1p1/tmp/ticket.jpg"
+#define PUTPIX_JPG_FILEPATH     "/media/mmcblk1p1/tmp/putticketpic/"
+#define GETPIX_JPG_FILEPATH     "/media/mmcblk1p1/tmp/getticketpic/"
+#define TEMPPIX_JPG_FILEPATH    "/media/mmcblk1p1/tmp/tempticketpic/"
+
+#define SOUND_FILEPATH          "/media/mmcblk1p1/opt/sound/"
+#define FTPPIX_JPG_FILEPATH     "/"
+
+#define PDEBUGLOG_FILEPATH      "/media/mmcblk1p1/opt/logs/app/"
+#define PUDPLOG_FILEPATH        "/media/mmcblk1p1/opt/logs/udp/"
+#else
+#define QS_FILEPATH             "/opt/config/user.conf"
+#define QGUOREN_FILEPATH        "/opt/config/guoren.conf"
+#define QPASSNUM_FILEPATH       "/tmp/passnum.conf"
+
+#define BGPIX_FILEPATH          "/opt/pic/image.jpg"
+
+#define PGPIX_JPG_FILEPATH      "/tmp/ticket.jpg"
+#define PUTPIX_JPG_FILEPATH     "/tmp/putticketpic/"
+#define GETPIX_JPG_FILEPATH     "/tmp/getticketpic/"
+#define TEMPPIX_JPG_FILEPATH    "/tmp/tempticketpic/"
+
+#define SOUND_FILEPATH          "/opt/sound/"
+#define FTPPIX_JPG_FILEPATH     "/"
+
+#if HARDWAREVER == SDE_GA502_1_3 || HARDWAREVER == SDE_GA503_1_0  //出现过文件系统只读的情况
+#define LOG_FILEPATH            "/media/mmcblk0p3/"
+#define PDEBUGLOG_FILEPATH      "/media/mmcblk0p3/logs/app/"
+#define PUDPLOG_FILEPATH        "/media/mmcblk0p3/logs/udp/"
+#else
+#define LOG_FILEPATH            "/opt/"
+#define PDEBUGLOG_FILEPATH      "/opt/logs/app/"
+#define PUDPLOG_FILEPATH        "/opt/logs/udp/"
+#endif
+#endif
+
+#define ARM_LINUX               1
+#define SNR_ENABLE              0
+
+#define ENCRYPT                 1
+#define NOENCRYPT               0
+
+//tcp协议版本
+#define TCPHEAD                 "78E6B38F"
+#define OLDPROTOCOL             0
+#define NEWPROTOCOL             1
+#define PROTOCOLVER             OLDPROTOCOL
+//udp是否加密
+#define UDPENCRYPT              NOENCRYPT
+//tcpserver是否启用
+#define TCPSERVER_ENABLE        0
+
+//特殊条码后台获取
+#define BARFETCHCMDSIGNOPEN     0
+//在园人数功能关闭
+#define PARKPERNUMCLOSE         1
+//二代证照片显示
+#define IDPICDISPLAY            0
+//人证比对
+#define PERIDMATCH              0
+
+
+
+//播放人数
+#define TICKETSOUND             0
+#if TICKETSOUND == 0
+#define MAXCACHE                3
+#else
+#define MAXCACHE                6
+#endif
+
+//外壳丝印对应串口定义
+#if HARDWAREVER == SDE_GA501_1_1
+#define COM1                    "/dev/ttymxc1"  //J517/UART2
+#define COM2                    "/dev/ttymxc2"  //J517/UART3
+#define COM3                    "/dev/ttyUSB1"  //扩展小板/COM1
+#define COM4                    "/dev/ttyUSB2"  //扩展小板/COM2
+#define COM5                    "/dev/ttyUSB0"  //扩展小板/COM3
+#define COM6                    "/dev/ttymxc3"
+#else
+#if (HARDWAREVER == SDE_GA501_1_2) || (HARDWAREVER == SDE_GA501_1_3) || (HARDWAREVER == SDE_GA501_1_4)
+#define COM1                    "/dev/ttyUSB0"  //J10/COM6
+#define COM2                    "/dev/ttyUSB2"  //J6/COM8
+#define COM3                    "/dev/ttyUSB3"  //J6/COM9
+#define COM4                    "/dev/ttymxc1"  //J517/COM2
+#define COM5                    "/dev/ttymxc2"  //J517/COM3
+#define COM6                    "/dev/ttymxc3"
+#else
+#if HARDWAREVER == SDE_GA502_1_3
+#define COM1                    "/dev/ttyUSB0"  //J10/COM6
+#define COM2                    "/dev/ttyO3"    //J7/COM3
+#define COM3                    "/dev/ttyO5"    //J7/COM5
+#define COM4                    "/dev/ttyO1"    //J6/COM1
+#define COM5                    "/dev/ttyO2"    //J6/COM2
+#define COM6                    "/dev/ttyUSB1"
+#else
+#if HARDWAREVER == SDE_GA503_1_0
+#define COM1                    "/dev/ttyO1"    //J10/COM1
+#define COM2                    "/dev/ttyO2"    //P11/COM2
+#define COM3                    "/dev/ttyO3"    //P12/COM3
+#define COM4                    "/dev/ttyO5"    //P13/COM5
+#define COM5                    "/dev/ttyUSB1"
+#define COM6                    "/dev/ttyUSB2"
+#else
+#define COM1                    "/dev/ttymxc1"  //J517/UART2
+#define COM2                    "/dev/ttymxc2"  //J517/UART3
+#define COM3                    "/dev/ttyUSB1"  //扩展小板/COM1
+#define COM4                    "/dev/ttyUSB2"  //扩展小板/COM2
+#define COM5                    "/dev/ttyUSB0"  //扩展小板/COM3
+#endif
+#endif
+#endif
+#endif
+
+
+//finger
+#define FINGEROPENMODE          0               //指纹是否常开
+#define FINGERCOM               COM1
+//rfid
+#define RFIDCOM                 COM2
+#define RFICENCRYPTENABLE       NOENCRYPT
+//bar
+#define BARCODECOM              COM3
+//swinggate
+#define SWINGGATECOM            COM4
+//led
+//FACEDETECTCOM
+#define FACEHEARTTIME           15
+#define NOFACE                  0
+#define BAIDUFACE               1//兼容AIbee
+#define TENCENTFACE             2
+#define ARCFACE                 3
+#define FACEMODE                NOFACE
+#define MODE_1TON               1
+
+#if FACEMODE
+#define LEDDISCOM               COM6
+#define FACEDETECTCOM           COM5
+#else
+#define LEDDISCOM               COM5
+#define FACEDETECTCOM           COM6
+#endif
+
+
+
+
+#endif // CONFIG_H

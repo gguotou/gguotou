@@ -1,0 +1,35 @@
+#ifndef LEDSTATE_H
+#define LEDSTATE_H
+
+#include <QThread>
+#include <QDebug>
+#include <QApplication>
+#include <QSettings>
+#include "userevent.h"
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <termios.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include "config.h"
+
+#define DEV_LEDSTATE "/dev/sendinfo_ledstate"
+
+class LedState : public QThread
+{
+    Q_OBJECT
+public:
+    explicit LedState(QObject *parent = 0);
+private:
+    void run();
+    QObject *fm;
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // LEDSTATE_H

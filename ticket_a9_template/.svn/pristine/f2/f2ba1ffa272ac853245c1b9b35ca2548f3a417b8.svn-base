@@ -1,0 +1,64 @@
+/********************************************************************************
+** Form generated from reading UI file 'sqltable.ui'
+**
+** Created: Wed Sep 12 11:54:32 2018
+**      by: Qt User Interface Compiler version 4.8.4
+**
+** WARNING! All changes made in this file will be lost when recompiling UI file!
+********************************************************************************/
+
+#ifndef UI_SQLTABLE_H
+#define UI_SQLTABLE_H
+
+#include <QtCore/QVariant>
+#include <QtGui/QAction>
+#include <QtGui/QApplication>
+#include <QtGui/QButtonGroup>
+#include <QtGui/QGridLayout>
+#include <QtGui/QHeaderView>
+#include <QtGui/QTableView>
+#include <QtGui/QWidget>
+
+QT_BEGIN_NAMESPACE
+
+class Ui_SqlTable
+{
+public:
+    QGridLayout *gridLayout;
+    QTableView *tableView;
+
+    void setupUi(QWidget *SqlTable)
+    {
+        if (SqlTable->objectName().isEmpty())
+            SqlTable->setObjectName(QString::fromUtf8("SqlTable"));
+        SqlTable->resize(800, 480);
+        SqlTable->setMinimumSize(QSize(800, 480));
+        gridLayout = new QGridLayout(SqlTable);
+        gridLayout->setObjectName(QString::fromUtf8("gridLayout"));
+        tableView = new QTableView(SqlTable);
+        tableView->setObjectName(QString::fromUtf8("tableView"));
+        tableView->setMinimumSize(QSize(320, 240));
+        tableView->setMaximumSize(QSize(640, 480));
+
+        gridLayout->addWidget(tableView, 0, 0, 1, 1);
+
+
+        retranslateUi(SqlTable);
+
+        QMetaObject::connectSlotsByName(SqlTable);
+    } // setupUi
+
+    void retranslateUi(QWidget *SqlTable)
+    {
+        SqlTable->setWindowTitle(QApplication::translate("SqlTable", "Form", 0, QApplication::UnicodeUTF8));
+    } // retranslateUi
+
+};
+
+namespace Ui {
+    class SqlTable: public Ui_SqlTable {};
+} // namespace Ui
+
+QT_END_NAMESPACE
+
+#endif // UI_SQLTABLE_H

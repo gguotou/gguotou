@@ -1,0 +1,64 @@
+#ifndef VIDEODEVICE_H
+#define VIDEODEVICE_H
+
+#include <QObject>
+#include <QDebug>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <termios.h>
+#include <errno.h>
+#include <assert.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <stdlib.h>
+#include <asm/types.h>
+#include <linux/videodev2.h>
+
+#define CLEAR(x) memset(&(x), 0, sizeof(x))
+
+class VideoDevice : public QObject
+{
+    Q_OBJECT
+public:
+    explicit VideoDevice(QObject *parent = 0);
+    //VideoDevice();
+    int open_device();
+    int close_device();
+    int init_device();
+    int start_capturing();
+    int stop_capturing();
+    int uninit_device();
+    int get_frame(void **, size_t*);
+    int unget_frame();
+
+    int getframe(unsigned char *rgb);
+
+private:
+    int init_mmap();
+
+    struct buffer
+    {
+        void * start;
+        size_t length;
+    };
+    QString dev_name;
+    int fd;
+    buffer* buffers;
+    unsigned int n_buffers;
+    int index;
+
+    bool videoOkFlag;
+
+    uchar * p;
+    unsigned int len;
+
+    int rs;
+    int convert_yuv_to_rgb_pixel(int y, int u, int v);
+    int convert_yuv_to_rgb_buffer(unsigned char *yuv, unsigned char *rgb, unsigned int width, unsigned int height);
+};
+
+#endif // VIDEODEVICE_H

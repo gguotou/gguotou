@@ -1,0 +1,97 @@
+/*************************************************************
+日期：2012－06－06
+更新内容：
+    1）：增加kaji IP xianshi
+    2）：增加 jian  pan  shu  ru  jian  piao
+更新人：ni
+
+版本：2.2.3
+日期：2012－06－06
+更新内容：
+    1）：增加音量控制功能
+    2）：更改udp接收发送函数，使其能跨网段设置参数
+更新人：wy
+
+版本：2.2.3
+日期：2012－06－01
+更新内容：
+    1）：tcp等待超时时间由1.5S增加到5S。
+    2）：tcp心跳时间由1S增加到3S
+    ps：目前心跳和检票一起发送问题由中间层控制
+更新人：wy
+
+包含功能：
+票类：
+   条码普通检票，条码捆绑指纹，条码捆绑图像，条码综合应用（图像，指纹，二代证）
+   IC卡普通检票，IC卡捆绑指纹，IC卡捆绑图像，IC卡综合应用（图像，指纹，二代证）
+闸门：
+   摆闸，翼闸，三棍闸
+显示：
+   800*480 7"LCD
+*************************************************************/
+#include <QtGui/QApplication>
+#include <QPalette>
+#include <QWSServer>
+#include <QTextCodec>
+#include <QFile>
+#include <QTextStream>
+#include "form.h"
+#include "config.h"
+/*
+void customMessageHandler(QtMsgType type, const char *msg)
+{
+    QString txt;
+    switch (type) {
+    //调试信息提示
+    case QtDebugMsg:
+            txt = QString("Debug: %1").arg(msg);
+           break;
+    //一般的warning提示
+    case QtWarningMsg:
+            txt = QString("Warning: %1").arg(msg);
+            break;
+    //严重错误提示
+    case QtCriticalMsg:
+
+            txt = QString("Critical: %1").arg(msg);
+            break;
+    //致命错误提示
+    case QtFatalMsg:
+            txt = QString("Fatal: %1").arg(msg);
+            break;
+    }
+    QFile outFile(PDEBUGLOG_FILEPATH) ;
+    outFile.open(QIODevice::WriteOnly | QIODevice::Append);
+    QTextStream ts(&outFile);
+    ts << txt << endl;
+}
+*/
+int main(int argc, char *argv[])
+{
+    QApplication a(argc, argv);
+#if ARM_LINUX
+    QWSServer::setCursorVisible(false);
+#endif
+    QTextCodec::setCodecForTr(QTextCodec::codecForName("UTF-8"));
+    QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));
+    QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
+    //qInstallMsgHandler(customMessageHandler);
+
+    /*
+    //以后就可以像下面这样直接打日志到文件中，而且日志也会包含时间信息
+
+    qDebug("This is a debug message at thisisqt.com");
+
+    qWarning("This is a warning message  at thisisqt.com");
+
+    qCritical("This is a critical message  at thisisqt.com");
+
+    qFatal("This is a fatal message at thisisqt.com");
+    */
+
+    Form w;
+    w.setGeometry(0,0,1024,768);
+    w.setWindowFlags(Qt::FramelessWindowHint);
+    w.show();
+    return a.exec();
+}

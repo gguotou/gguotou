@@ -1,0 +1,46 @@
+#include "usbprint.h"
+#define DEV_USBPRINT "/dev/lp0"
+
+UsbPrint::UsbPrint(QObject *parent) :
+    QThread(parent)
+{
+    printFile = new QFile("/dev/usblp0");
+    if(!printFile->open((QFile::ReadWrite)))
+    {
+        qDebug()<<"open print file err";
+    }
+    else
+        qDebug()<<"open print file ok";
+    localFile = new QFile("/opt/print");
+    if(!localFile->open((QFile::ReadWrite)))
+    {
+        qDebug()<<"open local file err";
+    }
+    else
+        qDebug()<<"open local file ok";
+
+    QByteArray buf;
+    buf = localFile->readAll();
+    qDebug()<<buf;
+    printFile->write(buf);
+    /*
+    int fd=0;
+    fd = open(DEV_USBPRINT,O_RDWR);
+    if(fd<0)
+    {
+        qDebug()<<"open usb print err";
+    }
+    else
+        qDebug("usb print file is %d",fd);
+    int wfd;
+    wfd = open("/opt/print",O_RDWR);
+    if(fd<0)
+    {
+        qDebug()<<"open usb print err";
+    }
+    else
+        qDebug("to print file is %d",wfd);
+    QByteArray buf;
+    buf =
+    */
+}

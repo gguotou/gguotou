@@ -1,0 +1,172 @@
+/****************************************************************************
+** Meta object code from reading C++ file 'form.h'
+**
+** Created: Wed Oct 31 16:41:33 2018
+**      by: The Qt Meta Object Compiler version 63 (Qt 4.8.4)
+**
+** WARNING! All changes made in this file will be lost!
+*****************************************************************************/
+
+#include "../ticket/form.h"
+#if !defined(Q_MOC_OUTPUT_REVISION)
+#error "The header file 'form.h' doesn't include <QObject>."
+#elif Q_MOC_OUTPUT_REVISION != 63
+#error "This file was generated using the moc from 4.8.4. It"
+#error "cannot be used with the include files from this version of Qt."
+#error "(The moc has changed too much.)"
+#endif
+
+QT_BEGIN_MOC_NAMESPACE
+static const uint qt_meta_data_Form[] = {
+
+ // content:
+       6,       // revision
+       0,       // classname
+       0,    0, // classinfo
+      31,   14, // methods
+       0,    0, // properties
+       0,    0, // enums/sets
+       0,    0, // constructors
+       0,       // flags
+       0,       // signalCount
+
+ // slots: signature, parameters, type, tag, flags
+       6,    5,    5,    5, 0x08,
+      21,    5,    5,    5, 0x08,
+      46,    5,    5,    5, 0x08,
+      67,    5,    5,    5, 0x08,
+      84,    5,    5,    5, 0x08,
+      99,    5,    5,    5, 0x08,
+     113,    5,    5,    5, 0x08,
+     128,    5,    5,    5, 0x08,
+     143,    5,    5,    5, 0x08,
+     154,    5,    5,    5, 0x08,
+     170,    5,    5,    5, 0x08,
+     191,    5,    5,    5, 0x08,
+     213,    5,    5,    5, 0x08,
+     229,    5,    5,    5, 0x08,
+     269,  248,    5,    5, 0x08,
+     329,  312,    5,    5, 0x08,
+     360,  312,    5,    5, 0x08,
+     394,    5,    5,    5, 0x08,
+     409,    5,    5,    5, 0x08,
+     429,    5,    5,    5, 0x08,
+     446,    5,    5,    5, 0x08,
+     462,    5,    5,    5, 0x08,
+     478,    5,    5,    5, 0x08,
+     500,  494,    5,    5, 0x08,
+     550,  544,    5,    5, 0x08,
+     607,  587,    5,    5, 0x08,
+     649,    5,    5,    5, 0x08,
+     663,    5,    5,    5, 0x08,
+     678,    5,    5,    5, 0x08,
+     700,    5,    5,    5, 0x08,
+     720,    5,    5,    5, 0x08,
+
+       0        // eod
+};
+
+static const char qt_meta_stringdata_Form[] = {
+    "Form\0\0FaceTimerOut()\0paintEvent(QPaintEvent*)\0"
+    "TicketDebug(QString)\0TicketTimerOut()\0"
+    "PASSTimerOut()\0VDDTimerOut()\0"
+    "ZeroTimerOut()\0GateTimerOut()\0TcpHeart()\0"
+    "TcpRecTimeOut()\0TcpConnectTimerOut()\0"
+    "TcpResponseTimerOut()\0IPdisTimerOut()\0"
+    "GetParkPerNumOut()\0clientID,IP,Port,cmd\0"
+    "ClientReadData(int,QString,int,QByteArray)\0"
+    "clientID,IP,Port\0ClientConnect(int,QString,int)\0"
+    "ClientDisConnect(int,QString,int)\0"
+    "LiveTimerOut()\0ftpdisoffTimerOut()\0"
+    "PicDisTimerOut()\0SoundTimerOut()\0"
+    "redFromStdOut()\0redFromStdErr()\0state\0"
+    "processStateChanged(QProcess::ProcessState)\0"
+    "error\0processError(QProcess::ProcessError)\0"
+    "exitCode,exitStatus\0"
+    "processFinished(int,QProcess::ExitStatus)\0"
+    "BARTimerOut()\0CardTimerOut()\0"
+    "fingerStartTimerOut()\0WebSocketTimerOut()\0"
+    "TempHumReadTimerOut()\0"
+};
+
+void Form::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
+{
+    if (_c == QMetaObject::InvokeMetaMethod) {
+        Q_ASSERT(staticMetaObject.cast(_o));
+        Form *_t = static_cast<Form *>(_o);
+        switch (_id) {
+        case 0: _t->FaceTimerOut(); break;
+        case 1: _t->paintEvent((*reinterpret_cast< QPaintEvent*(*)>(_a[1]))); break;
+        case 2: _t->TicketDebug((*reinterpret_cast< QString(*)>(_a[1]))); break;
+        case 3: _t->TicketTimerOut(); break;
+        case 4: _t->PASSTimerOut(); break;
+        case 5: _t->VDDTimerOut(); break;
+        case 6: _t->ZeroTimerOut(); break;
+        case 7: _t->GateTimerOut(); break;
+        case 8: _t->TcpHeart(); break;
+        case 9: _t->TcpRecTimeOut(); break;
+        case 10: _t->TcpConnectTimerOut(); break;
+        case 11: _t->TcpResponseTimerOut(); break;
+        case 12: _t->IPdisTimerOut(); break;
+        case 13: _t->GetParkPerNumOut(); break;
+        case 14: _t->ClientReadData((*reinterpret_cast< int(*)>(_a[1])),(*reinterpret_cast< QString(*)>(_a[2])),(*reinterpret_cast< int(*)>(_a[3])),(*reinterpret_cast< QByteArray(*)>(_a[4]))); break;
+        case 15: _t->ClientConnect((*reinterpret_cast< int(*)>(_a[1])),(*reinterpret_cast< QString(*)>(_a[2])),(*reinterpret_cast< int(*)>(_a[3]))); break;
+        case 16: _t->ClientDisConnect((*reinterpret_cast< int(*)>(_a[1])),(*reinterpret_cast< QString(*)>(_a[2])),(*reinterpret_cast< int(*)>(_a[3]))); break;
+        case 17: _t->LiveTimerOut(); break;
+        case 18: _t->ftpdisoffTimerOut(); break;
+        case 19: _t->PicDisTimerOut(); break;
+        case 20: _t->SoundTimerOut(); break;
+        case 21: _t->redFromStdOut(); break;
+        case 22: _t->redFromStdErr(); break;
+        case 23: _t->processStateChanged((*reinterpret_cast< QProcess::ProcessState(*)>(_a[1]))); break;
+        case 24: _t->processError((*reinterpret_cast< QProcess::ProcessError(*)>(_a[1]))); break;
+        case 25: _t->processFinished((*reinterpret_cast< int(*)>(_a[1])),(*reinterpret_cast< QProcess::ExitStatus(*)>(_a[2]))); break;
+        case 26: _t->BARTimerOut(); break;
+        case 27: _t->CardTimerOut(); break;
+        case 28: _t->fingerStartTimerOut(); break;
+        case 29: _t->WebSocketTimerOut(); break;
+        case 30: _t->TempHumReadTimerOut(); break;
+        default: ;
+        }
+    }
+}
+
+const QMetaObjectExtraData Form::staticMetaObjectExtraData = {
+    0,  qt_static_metacall 
+};
+
+const QMetaObject Form::staticMetaObject = {
+    { &QWidget::staticMetaObject, qt_meta_stringdata_Form,
+      qt_meta_data_Form, &staticMetaObjectExtraData }
+};
+
+#ifdef Q_NO_DATA_RELOCATION
+const QMetaObject &Form::getStaticMetaObject() { return staticMetaObject; }
+#endif //Q_NO_DATA_RELOCATION
+
+const QMetaObject *Form::metaObject() const
+{
+    return QObject::d_ptr->metaObject ? QObject::d_ptr->metaObject : &staticMetaObject;
+}
+
+void *Form::qt_metacast(const char *_clname)
+{
+    if (!_clname) return 0;
+    if (!strcmp(_clname, qt_meta_stringdata_Form))
+        return static_cast<void*>(const_cast< Form*>(this));
+    return QWidget::qt_metacast(_clname);
+}
+
+int Form::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
+{
+    _id = QWidget::qt_metacall(_c, _id, _a);
+    if (_id < 0)
+        return _id;
+    if (_c == QMetaObject::InvokeMetaMethod) {
+        if (_id < 31)
+            qt_static_metacall(this, _c, _id, _a);
+        _id -= 31;
+    }
+    return _id;
+}
+QT_END_MOC_NAMESPACE

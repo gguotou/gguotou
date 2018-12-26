@@ -1,0 +1,191 @@
+#include "tcpclient.h"
+
+TcpClient::TcpClient(QObject * parent)
+    :QTcpSocket(parent)
+{
+    readMessageSize = 0;
+    totalMessageSize = 0;
+    tcpData.resize(0);
+#if PROTOCOLVER == NEWPROTOCOL
+    tcpHead = BgComm::StringToHex(TCPHEAD);
+    tcpHeadSize = tcpHead.size();
+#else
+    tcpHeadSize = 0;
+#endif
+    timer = new QTimer(this);
+
+    fm = this->parent();
+
+    connect(timer,SIGNAL(timeout()),this,SLOT(TcpReadErr()));
+    connect(this, SIGNAL(readyRead()), this, SLOT(readServer()));
+    connect(this, SIGNAL(disconnected()), this, SLOT(tcpDisconnect()));
+    connect(this, SIGNAL(error(QAbstractSocket::SocketError)),
+            this, SLOT(tcpError()));
+    connect(this,SIGNAL(connected()),this,SLOT(processLogin()));
+}
+
+bool TcpClient::doConnect(QString serverAddr,quint16 port)
+{
+    this->abort();
+    emit TicketDebug("ConnectToHost---serverAddr:"+serverAddr+" port:"+QString::number(port,10));
+    this->connectToHost(serverAddr,port,QTcpSocket::ReadWrite);
+    return true;
+}
+
+void TcpClient::processLogin()
+{
+    UserEvent *te = new UserEvent(CR::ConnectOK,this);
+    qApp->postEvent(fm,te);
+}
+
+bool TcpClient::doDisconnect()
+{
+    QDataStream in(this);
+    nextMessageSize = this->bytesAvailable();
+    //现有的数据读出，以便下次重新读取
+    in.setVersion(QDataStream::Qt_4_5);
+    char * data = new char[nextMessageSize];
+    in.readRawData(data,nextMessageSize);
+    delete []data;
+    nextMessageSize = 0;
+    readMessageSize = 0;
+    tcpData.resize(0);
+    emit TicketDebug("DisconnectFromHost");
+    this->disconnectFromHost();
+    //this->close();
+    return true;
+}
+
+void TcpClient::tcpError()
+{
+    UserEvent *te = new UserEvent(CR::TcpError,this);
+    te->msg = this->errorString();
+    emit TicketDebug("TcpClient::tcpError()---"+this->errorString());
+    qApp->postEvent(fm,te);
+}
+
+void TcpClient::tcpDisconnect()
+{
+    UserEvent *te = new UserEvent(CR::TcpDisconnect,this);
+    te->msg = this->errorString();
+    emit TicketDebug("TcpClient::tcpDisconnect()---"+this->errorString());
+    qApp->postEvent(fm,te);
+}
+
+void TcpClient::readServer()
+{
+    nextMessageSize = this->bytesAvailable();
+
+    QDataStream in(this);
+    in.setVersion(QDataStream::Qt_4_5);
+
+    if(readMessageSize < (4+tcpHeadSize))//first read
+    {
+        timer->start(1500);
+        char * data = new char[nextMessageSize];
+        in.readRawData(data,nextMessageSize);
+        QByteArray qba(data,nextMessageSize);
+        delete []data;
+        tcpData += qba;
+        readMessageSize = nextMessageSize;
+        if(readMessageSize >= (4+tcpHeadSize))
+        {
+            //qDebug()<<"tcp ------------"+BgComm::ByteArrayToHexString(tcpData);
+            totalMessageSize = (quint8)tcpData.data()[2+tcpHeadSize]*256+(quint8)tcpData.data()[3+tcpHeadSize]+5+tcpHeadSize;
+        }
+        if(totalMessageSize == readMessageSize)//only one
+        {
+            timer->stop();
+            //if((tcpHeadSize==0) || tcpData.startsWith(tcpHead))
+            {
+                UserEvent * ue = new UserEvent(CR::TcpReadMsg,this);
+                ue->byteArray = tcpData.remove(0,+tcpHeadSize);
+                qApp->postEvent(fm,ue);
+                readMessageSize = 0;
+                tcpData.resize(0);
+            }
+            return;
+        }
+    }
+    if((readMessageSize+nextMessageSize) == totalMessageSize)//read cmd over
+    {
+        timer->stop();
+        char * data = new char[nextMessageSize];
+        in.readRawData(data,nextMessageSize);
+        QByteArray qba(data,nextMessageSize);
+        delete []data;
+        tcpData += qba;
+        //if((tcpHeadSize==0) || tcpData.startsWith(tcpHead))
+        {
+            UserEvent * ue = new UserEvent(CR::TcpReadMsg,this);
+            ue->byteArray = tcpData.remove(0,+tcpHeadSize);
+            qApp->postEvent(fm,ue);
+            readMessageSize = 0;
+            tcpData.resize(0);
+        }
+    }
+}
+
+bool TcpClient::event(QEvent * event)
+{
+    if(event->type() == QEvent::User)
+    {
+        UserEvent * ue = static_cast<UserEvent *>(event);
+        switch(ue->userType)
+        {
+            case CR::DoConnect:
+                doConnect(ue->ipAddr,ue->port);
+                break;
+            case CR::DoDisconnect:
+                doDisconnect();
+                break;
+            case CR::TcpSendMsg:
+                TcpSend(ue->byteArray);
+                break;
+            default:
+                return false;
+        }
+    }
+    else
+    {
+        return QTcpSocket::event(event);
+    }
+    return true;
+}
+
+bool TcpClient::TcpSend(QByteArray buf)
+{
+    if(tcpHeadSize)
+        buf.insert(0,tcpHead);
+    qint32 len = this->write(buf);
+
+    if(len < 0)
+    {
+        UserEvent * uie = new UserEvent(CR::SendtoMessage,this);
+        uie->flag = 0;
+        qApp->postEvent(fm,uie);
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+void TcpClient::TcpReadErr()//TCP数据帧超时
+{
+    QDataStream in(this);
+    timer->stop();
+    nextMessageSize = this->bytesAvailable();
+    //现有的数据读出，以便下次重新读取
+    in.setVersion(QDataStream::Qt_4_5);
+    char * data = new char[nextMessageSize];
+    in.readRawData(data,nextMessageSize);
+    delete []data;
+    qDebug()<<"The TCP data frame timeout";
+    nextMessageSize = 0;
+    readMessageSize = 0;
+    tcpData.resize(0);
+    disconnected();
+}
+

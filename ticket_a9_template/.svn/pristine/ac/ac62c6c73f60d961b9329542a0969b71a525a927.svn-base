@@ -1,0 +1,2652 @@
+/*
+ * 这是一个从各种读写器里面读卡数据的文件，
+ *  DevType这个变量控制不同类型的读卡器
+ * 向不同的读卡器写些命令可以从卡里读出数据
+*/
+#include "rfidthread.h"
+
+RfidThread::RfidThread(QObject *parent) :
+    QThread(parent)
+{
+    qs = new QSettings(QS_FILEPATH, QSettings::IniFormat);
+    QString comStr;
+    QString str;
+    str = qs->value("ARFIDCOM","COM0").toString();
+    switch(str.mid(3,1).toInt())
+    {
+        case 0x01:comStr = COM1;break;
+        case 0x02:comStr = COM2;break;
+        case 0x03:comStr = COM3;break;
+        case 0x04:comStr = COM4;break;
+        case 0x05:comStr = COM5;break;
+        case 0x06:comStr = COM6;break;
+        default:comStr = RFIDCOM;break;
+    }
+    if(str.mid(3,1).toInt() >=1 && str.mid(3,1).toInt()<=6)
+    {
+        qDebug("rfidthread com is defined by user.conf");
+    }
+    else
+    {
+        qDebug("rfidthread com is defined by config.h");
+    }
+
+    if(comStr.indexOf("ttymxc")>=0)
+        IsComOnboardFlag = 1;
+    else
+        IsComOnboardFlag = 0;
+    if(IsComOnboardFlag)
+    {
+        QByteArray a;
+        a = comStr.toLatin1();
+        fp = open(a.data(),O_RDWR|O_NOCTTY|O_NDELAY); //打开串口0读写 //以非阻塞模式打开串口//O_NDELAY 等价于 O_NOBLOCK
+        if(fp == -1)
+        {
+            qDebug()<<QString("open %1 err").arg(comStr);
+            comOpenErr = 1;
+            return;
+        }
+    }
+    else
+    {
+        myCom = new Posix_QextSerialPort(comStr,QextSerialBase::Polling);
+        myCom->open(QIODevice::ReadWrite);
+    }
+
+    readComDelayTime = 10;
+    comOpenErr = 0;
+    fm = this->parent();
+}
+
+void RfidThread::CloseCom()
+{
+    if(IsComOnboardFlag)
+        close(fp);
+    else
+        myCom->close();
+}
+void RfidThread::QuitFlag()
+{
+    quit_rfid_flag =1;
+}
+void RfidThread::SendBuf(QString target, QByteArray buf, bool dis)
+{
+    if(comOpenErr)return;
+    if(IsComOnboardFlag)
+    {
+        char *message;
+        message = buf.data();
+        write(fp, message, buf.size());
+    }
+    else
+    {
+        myCom->write(buf);
+    }
+    if(dis)
+        emit TicketDebug(QString("%1 send:").arg(target) + BgComm::ByteArrayToString(buf, 16, true));
+}
+
+void RfidThread::run()
+{
+    QByteArray outina;
+    quint8 ik;
+    quint8 ic_ik = 0;
+    rfidflag = 0;
+    quit_rfid_flag =0;
+    if(comOpenErr)return;
+    if(IsComOnboardFlag)
+    {
+        struct termios options;
+        tcgetattr(fp,&options);
+        switch(devType)
+        {
+            case 0x00://rc500
+            case 0x05://rc500 + 回收
+                cfsetispeed(&options,B57600);
+                cfsetospeed(&options,B57600);
+                break;
+            case 0x01://CPU卡读写器
+            case 0x02://华视二代证
+            case 0x03://智博二合一
+            case 0x04://新中新二合一
+            case 0x07://新中新二代证
+            case 0x08://精伦M1读卡器
+            case 0x09://维尔二合一
+                cfsetispeed(&options,B115200);
+                cfsetospeed(&options,B115200);
+                break;
+#if HARDWAREVER != SDE_GA502_1_3 && HARDWAREVER != SDE_GA503_1_0
+            case 0x0a:
+                WELLUSBInit();
+                break;
+#endif
+            default:
+                cfsetispeed(&options,B57600);
+                cfsetospeed(&options,B57600);
+                break;
+        }
+        options.c_cflag |= (CLOCAL|CREAD);
+
+        options.c_lflag  &= ~(ICANON | ECHO | ECHOE | ISIG);  /*Input*/
+        options.c_oflag  &= ~OPOST;   /*Output*/
+        options.c_iflag  &= ~(ICRNL|IXON);
+
+        tcsetattr(fp,TCSANOW,&options);
+    }
+    else
+    {
+        switch(devType)
+        {
+        case 0x00://rc500
+        case 0x05://rc500 + 回收
+            myCom->setBaudRate(BAUD57600);
+            break;
+        case 0x01://CPU卡读写器
+        case 0x02://华视二代证
+        case 0x03://智博二合一
+        case 0x04://新中新二合一
+        case 0x07://新中新二代证
+        case 0x08://精伦M1读卡器
+        case 0x09://维尔二合一
+            myCom->setBaudRate(BAUD115200);
+            break;
+#if HARDWAREVER != SDE_GA502_1_3 && HARDWAREVER != SDE_GA503_1_0
+        case 0x0a:
+            WELLUSBInit();
+            break;
+#endif
+        default:
+            myCom->setBaudRate(BAUD57600);
+            break;
+        }
+
+        myCom->setDataBits(DATA_8);
+        myCom->setParity(PAR_NONE);
+        myCom->setStopBits(STOP_1);
+
+        //设置数据流控制
+        myCom->setFlowControl(FLOW_OFF);
+        //设置延时
+        myCom->setTimeout(5);
+    }
+
+    switch(devType)
+    {
+        case 0x00://RC500（sendinfo）
+        {
+            emit TicketDebug("RC500 Card Reader run");
+            while(1)
+            {
+                if(quit_rfid_flag)
+                {
+                    //qDebug("BREAK WHILE IN rfid-----------------------------");
+                    break;
+                }
+                ik = Rc500GetType();
+                if(ik == 0)
+                {
+                    ik = Rc500GetSnr();
+                    if(ik == 0)
+                    {
+#if RFICENCRYPTENABLE == NOENCRYPT
+                        ticketBuf.fill(0,16);
+                        ToFormTicket(snrRead+ticketBuf,1,0x01);
+#else
+                        ik = Rc500LoadKey(snrRead,0);
+                        if(ik == 0)
+                        {
+                            msleep(200);
+                            ik = Rc500ReadBlock(snrRead,1);
+                            if(ik == 0)
+                            {
+                                ticketType = (quint8)ticketBuf.data()[0];
+                                emit TicketDebug(QString("ticketType:0x%1").arg(ticketType, 2, 16, (QChar)'0'));
+                                switch(ticketType)//01、会员卡(年卡) 02、储值卡 03、门票卡即腕带卡 04、员工卡
+                                {
+                                case 0x01:
+                                {
+                                    ik = Rc500LoadKey(snrRead,1);
+                                    if(ik == 0)
+                                    {
+                                        ik = Rc500ReadBlock(snrRead,4);
+                                        if(ik == 0)
+                                        {
+                                            ToFormTicket(snrRead+ticketBuf,1,0xc0+ticketType);
+                                            Rc500Beep();
+                                            Rc500Halt();
+                                        }
+                                    }
+                                    break;
+                                }
+                                case 0xa0:
+                                case 0xa1:
+                                case 0xa2:
+                                case 0xa3:
+                                case 0xa4:
+                                case 0xa5:
+                                case 0xa6:
+                                {
+                                    ToFormTicket(ticketBuf,0,ticketType);
+                                    Rc500Beep();
+                                    Rc500Halt();
+                                    msleep(1000);
+                                    break;
+                                }
+                                default:
+                                {
+                                    ik = Rc500LoadKey(snrRead,1);
+                                    if(ik == 0)
+                                    {
+                                        ik = Rc500ReadBlock(snrRead,4);
+                                        if(ik == 0)
+                                        {
+                                            ToFormTicket(snrRead+ticketBuf,1,0xc0+ticketType);
+                                            Rc500Beep();
+                                            Rc500Halt();
+                                        }
+                                    }
+                                    break;
+                                }
+                                }
+                            }
+                        }
+#endif
+                    }
+                }
+                msleep(100);
+            }
+            break;
+        }
+        case 0x05://RC500+简易回收装置
+        {
+            emit TicketDebug("RC500 huishou Card Reader run");
+            while(1)
+            {
+                if(quit_rfid_flag)
+                {
+                    //qDebug("BREAK WHILE IN rfid-----------------------------");
+                    break;
+                }
+                while(ICOKFlag)
+                {
+                    ic_ik=0;
+                    ik = Rc500GetType();
+                    if(ik == 0)
+                    {
+                        ik = Rc500GetSnr();
+                        if(ik == 0)
+                        {
+#if RFICENCRYPTENABLE == NOENCRYPT
+                            ToFormTicket(snrRead+ticketBuf,1,0x01);
+                            Rc500Beep();
+                            Rc500Halt();
+#else
+                            ik = Rc500LoadKey(snrRead,0);
+                            if(ik == 0)
+                            {
+                                msleep(200);
+                                ik = Rc500ReadBlock(snrRead,1);
+                                if(ik == 0)
+                                {
+                                    ticketType = (quint8)ticketBuf.data()[0];
+                                    emit TicketDebug(QString("ticketType:0x%1").arg(ticketType, 2, 16, (QChar)'0'));
+                                    switch(ticketType)//01、会员卡(年卡) 02、储值卡 03、门票卡即腕带卡 04、员工卡
+                                    {
+                                    case 0x01:
+                                    {
+                                        ik = Rc500LoadKey(snrRead,1);
+                                        if(ik == 0)
+                                        {
+                                            ik = Rc500ReadBlock(snrRead,4);
+                                            if(ik == 0)
+                                            {
+                                                ToFormTicket(snrRead+ticketBuf,1,0xc0+ticketType);
+                                                Rc500Beep();
+                                                Rc500Halt();
+                                            }
+                                            else
+                                            {
+                                                ICOKFlag = 0;
+                                                OUT_IN(1);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            ICOKFlag = 0;
+                                            OUT_IN(1);
+                                        }
+                                        break;
+                                    }
+                                    case 0xa0:
+                                    case 0xa1:
+                                    case 0xa2:
+                                    case 0xa3:
+                                    case 0xa4:
+                                    case 0xa5:
+                                    case 0xa6:
+                                    {
+                                        ToFormTicket(ticketBuf,0,ticketType);
+                                        Rc500Beep();
+                                        Rc500Halt();
+                                        msleep(1000);
+                                        break;
+                                    }
+                                    default:
+                                    {
+                                        ik = Rc500LoadKey(snrRead,1);
+                                        if(ik == 0)
+                                        {
+                                            ik = Rc500ReadBlock(snrRead,4);
+                                            if(ik == 0)
+                                            {
+                                                ToFormTicket(snrRead+ticketBuf,1,0xc0+ticketType);
+                                                Rc500Beep();
+                                                Rc500Halt();
+                                            }
+                                            else
+                                            {
+                                                ICOKFlag = 0;
+                                                OUT_IN(1);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            ICOKFlag = 0;
+                                            OUT_IN(1);
+                                        }
+                                        break;
+                                    }
+                                    }
+                                }
+                                else
+                                {
+                                    ICOKFlag = 0;
+                                    OUT_IN(1);
+                                }
+                            }
+                            else
+                            {
+                                ICOKFlag = 0;
+                                OUT_IN(1);
+                            }
+#endif
+                        }
+                        else
+                        {
+                            ICOKFlag = 0;
+                            OUT_IN(1);
+                        }
+                    }
+                    else if(ik == 2)
+                    {
+                        ICOKFlag = 0;
+                        OUT_IN(1);
+                    }
+                    msleep(100);
+                }
+                if(ICOKFlag==0)
+                {
+                    ic_ik++;
+                    outina = ReadMyCom(100);
+                    if(outina.length() >= 4)
+                        ICOKFlag = 1;
+                    if(ic_ik >= 5)
+                    {
+                        ICOKFlag = 1;
+                        ic_ik = 0;
+                    }
+                }
+                msleep(100);
+            }
+            break;
+        }
+        case 0x01://CPU卡读写器
+        {
+            emit TicketDebug("CPU Card Reader run");
+            RestPSAM();//复位PSAM卡
+            while(1)
+            {
+                if(quit_rfid_flag)
+                {
+                    //qDebug("BREAK WHILE IN rfid-----------------------------");
+                    break;
+                }
+                ik = SmGetSnr();//寻卡
+                if(ik == 0)
+                {
+                    if((icType&0x20) == 0)//M1卡
+                    {
+                        ik = SmReadblock(snrRead, 0, 1, 1);
+                        if(ik == 0)
+                        {
+                            ticketType = (quint8)ticketBuf.data()[0];
+                            emit TicketDebug(QString("ticketType:0x%1").arg(ticketType, 2, 16, (QChar)'0'));
+                            switch(ticketType)//01、会员卡(年卡) 02、储值卡 03、门票卡即腕带卡 04、员工卡
+                            {
+                                case 0x01:
+                                {
+                                    ik = SmReadblock(snrRead, 1, 4, 1);
+                                    if(ik == 0)
+                                    {
+                                        ToFormTicket(snrRead+ticketBuf,1,0xc0+ticketType);
+                                    }
+                                    break;
+                                }
+                                case 0xa0:
+                                case 0xa1:
+                                case 0xa2:
+                                case 0xa3:
+                                case 0xa4:
+                                case 0xa5:
+                                case 0xa6:
+                                {
+                                    ToFormTicket(ticketBuf,0,ticketType);
+                                    msleep(1000);
+                                    break;
+                                }
+                                default:
+                                {
+                                    ik = SmReadblock(snrRead, 1, 4, 1);
+                                    if(ik == 0)
+                                    {
+                                        ToFormTicket(snrRead+ticketBuf,1,0xc0+ticketType);
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        SmHalt();
+                    }
+                    else
+                    {
+                        ik = SmMifiRest();//复位 cpu 卡
+                        if(ik == 0)
+                        {
+                            emit TicketDebug("CPU Card Reader xxxx");
+                        }
+                    }
+                }
+                msleep(100);
+            }
+            break;
+        }
+        case 0x02://华视二代证
+        {
+            emit TicketDebug("CVR Card Reader run");
+
+            char mydata[] = {0x02,0x00,0x08,0x05,0x16, 0x66,0x55, 0x03};
+            QByteArray senddata = QByteArray::fromRawData(mydata, sizeof(mydata));
+            QByteArray readbuf;
+            while(1)
+            {
+                if(quit_rfid_flag)
+                {
+                    //qDebug("BREAK WHILE IN rfid-----------------------------");
+                    break;
+                }
+                SendBuf("huashierdaizheng", senddata);
+                readbuf = ReadMyCom(200);
+                if(((quint8)readbuf.data()[0] == 0x40)&&((quint8)readbuf.data()[1] == 0x48))
+                {
+                }
+                else if(readbuf.length() > 30)
+                {
+                    //emit TicketDebug("huashierdaizheng readbuf:"+BgComm::ByteArrayToString(readbuf, 16, true));
+                    QByteArray buf;
+
+                    for(quint8 i=0; i<18; i++)
+                    {
+                        buf[i] = readbuf.data()[i*2];
+                        //emit TicketDebug("huashierdaizheng id:"+BgComm::ByteArrayToString(buf, 16, true));
+                    }
+                    ToFormTicket(buf,1,0x02);
+                }
+                msleep(100);
+            }
+            break;
+        }
+        case 0x03://智博二合一
+        {
+            emit TicketDebug("HUASHIZHIBO Two-in-one Card Reader run");
+            findType = 1;
+            if(quit_rfid_flag)
+            {
+                //qDebug("BREAK WHILE IN rfid-----------------------------");
+                break;
+            }
+            while(1)
+            {
+                if(findType)
+                {
+                    if(idCardEnable)
+                        findType = 0;
+                    ik = HSGetIcType();
+                    if(ik == 0)
+                    {
+                        if(cardSnr != snrRead)
+                        {
+                            ik = HSLoadkey(snrRead);
+                            if(ik == 0)
+                            {
+                                ik = HSVerifyKey(snrRead,1);
+                                if(ik == 0)
+                                {
+                                    ik = HSReadIcData(1,1);
+                                    if(ik == 0)
+                                    {
+                                        ToFormTicket(snrRead+ticketBuf,1,0x01);
+                                        cardSnr = snrRead;
+                                        icOutTimes = 0;
+                                    }
+                                    else
+                                    {
+                                        ToFormTicket(ticketBuf,0,0x01);
+                                        msleep(1000);
+                                    }
+                                }
+                                else
+                                {
+                                     ToFormTicket(ticketBuf,0,0x01);
+                                     msleep(1000);
+                                }
+                            }
+                        }
+                    }
+                    else if(ik == 1)
+                    {
+                        icOutTimes++;
+                        if(icOutTimes > 3)
+                        {
+                            icOutTimes = 0;
+                            cardSnr.resize(0);
+                        }
+                    }
+                }
+                else
+                {
+                    findType = 1;
+                    ik = HSGetIdType();
+                    if(ik == 0)
+                    {
+                        ik = HSSelectID();
+                        if(ik == 0)
+                        {
+                            ik = HSReadIdData();
+                            if(ik == 0)
+                            {
+                                if(ticketBuf != idData)
+                                {
+                                    idOutTimes = 0;
+                                    idData = ticketBuf;
+                                    ToFormTicket(ticketBuf,1,0x02);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            findType = 0;
+                        }
+                    }
+                    else if(ik == 1)
+                    {
+                        idOutTimes++;
+                        if(idOutTimes >= 2)
+                        {
+                            idOutTimes = 0;
+                            idData.resize(0);
+                        }
+                    }
+                }
+                if(!idCardEnable)
+                    msleep(300);
+            }
+            break;
+        }
+        case 0x04://新中新二合一
+        {
+            emit TicketDebug("XZX Two-in-one Card Reader run");
+            findType = 1;
+            if(quit_rfid_flag)
+            {
+                //qDebug("BREAK WHILE IN rfid-----------------------------");
+                break;
+            }
+            while(1)
+            {
+                if(findType)
+                {
+                    if(idCardEnable)
+                        findType = 0;
+                    ik = XZXGetSnr();
+                    if(ik == 0)
+                    {
+#if RFICENCRYPTENABLE == NOENCRYPT
+                        ticketBuf.fill(0,16);
+                        ToFormTicket(snrRead+ticketBuf,1,0x01);
+#else
+                        ik = XZXLoadKey(snrRead,0);
+                        if(ik == 0)
+                        {
+                            ik = XZXYZKey(snrRead,0);
+                            if(ik == 0)
+                            {
+                                ik = XZXYZReadBlock(1);
+                                if(ik == 0)
+                                {
+                                    ticketType = (quint8)ticketBuf.data()[0];
+                                    emit TicketDebug(QString("ticketType:0x%1").arg(ticketType, 2, 16, (QChar)'0'));
+                                    switch(ticketType)
+                                    {
+                                    case 0xa0:
+                                    case 0xa1:
+                                    case 0xa2:
+                                    case 0xa3:
+                                    case 0xa4:
+                                    case 0xa5:
+                                    case 0xa6:
+                                    {
+                                        ToFormTicket(ticketBuf,0,ticketType);
+                                        // XZXHalt();
+                                        msleep(1000);
+                                        break;
+                                    }
+                                    default:
+                                    {
+                                        ik = XZXLoadKey(snrRead,1);
+                                        if(ik == 0)
+                                        {
+                                            ik = XZXYZKey(snrRead,1);
+                                            if(ik == 0)
+                                            {
+                                                ik = XZXYZReadBlock(4);
+                                                if(ik == 0)
+                                                {
+                                                    ToFormTicket(snrRead+ticketBuf,1,0x01);
+                                                    //XZXHalt();
+                                                }
+                                            }
+                                        }
+                                        //XZXbeep();
+                                        break;
+                                    }
+                                    }
+                                }
+                            }
+                        }
+#endif
+                    }
+                }
+                else
+                {
+                    findType = 1;
+                    ik = XZXReadID0();
+                    if(1)
+                    {
+                        ik = XZXReadID1();
+                        if(ik == 1)
+                        ik = XZXReadID1();
+                        if(ik == 1)
+                        ik = XZXReadID1();
+                        if(ik == 0)
+                        {
+                            ik = XZXReadID2();
+                            if(ik == 0)
+                            {
+                                ik = XZXReadID3();
+                                if(ik == 0)
+                                {
+                                    ToFormTicket(ticketBuf,1,0x02);
+                                }
+                                else if(ik==2)
+                                {
+                                    qDebug() << "shu ju mei you du wan";
+                                }
+                            }
+                        }
+                    }
+                }
+//                if(!idCardEnable)
+                    msleep(300);
+            }
+            break;
+        }
+        case 0x07://新中新二代证
+        {
+            emit TicketDebug("XZX Card Reader run");
+            if(quit_rfid_flag)
+            {
+                //qDebug("BREAK WHILE IN rfid-----------------------------");
+                break;
+            }
+            while(1)
+            {
+                ik =  XZXReadID0();
+                if(ik == 0)
+                {
+                    ik = XZXReadID1();
+                    if(ik == 0)
+                    {
+                        ik = XZXReadID2();
+                        if(ik == 0)
+                        {
+                            ik = XZXReadID3();
+                            if(ik == 0)
+                            {
+                                ToFormTicket(ticketBuf,1,0x02);
+                            }
+                            else if(ik==2)
+                            {
+                                qDebug() << "shu ju mei you du wan";
+                            }
+                        }
+                    }
+                }
+                msleep(100);
+            }
+            break;
+        }
+        case 0x08://精伦M1读卡器
+        {
+            emit TicketDebug("JL M1 Card Reader run");
+            if(quit_rfid_flag)
+            {
+                //qDebug("BREAK WHILE IN rfid-----------------------------");
+                break;
+            }
+            while(1)
+            {
+                ik = JingLunM1GetType();
+                if(ik == 0)
+                {
+                    ik = JingLunM1GetSnr();
+                    if(ik == 0)
+                    {
+#if RFICENCRYPTENABLE == NOENCRYPT
+                        ToFormTicket(snrRead+ticketBuf,1,0x01);
+#else
+                        msleep(200);
+                        ik = JingLunM1ReadBlock(snrRead, 1);
+                        if(ik == 0)
+                        {
+                            ticketType = (quint8)ticketBuf.data()[0];
+                            emit TicketDebug(QString("ticketType:0x%1").arg(ticketType, 2, 16, (QChar)'0'));
+                            switch(ticketType)//01、会员卡(年卡) 02、储值卡 03、门票卡即腕带卡 04、员工卡
+                            {
+                            case 0x01:
+                            {
+                                ik = JingLunM1ReadBlock(snrRead,4);
+                                if(ik == 0)
+                                {
+                                    ToFormTicket(snrRead+ticketBuf,1,0xc0+ticketType);
+                                }
+                                break;
+                            }
+
+                            case 0xa0:
+                            case 0xa1:
+                            case 0xa2:
+                            case 0xa3:
+                            case 0xa4:
+                            case 0xa5:
+                            case 0xa6:
+                            {
+                                ToFormTicket(ticketBuf,0,ticketType);
+                                msleep(1000);
+                                break;
+                            }
+                            default:
+                            {
+                                ik = JingLunM1ReadBlock(snrRead,4);
+                                if(ik == 0)
+                                {
+                                    ToFormTicket(snrRead+ticketBuf,1,0xc0+ticketType);
+                                }
+                                break;
+                            }
+                            }
+                        }
+#endif
+                    }
+                }
+                msleep(100);
+            }
+            break;
+        }
+        case 0x09://维尔二合一读卡器 IC卡协议:well专用; 二代证:通用(与新中新一样)
+        {
+            emit TicketDebug("Wellcom Serial Two-in-one Card Reader run");
+            findType = 1;
+            if(quit_rfid_flag)
+            {
+                //qDebug("BREAK WHILE IN rfid-----------------------------");
+                break;
+            }
+            while(1)
+            {
+                if(findType)
+                {
+                    if(idCardEnable)
+                        findType = 0;
+                    ik = WELLGetSnr();
+                    if(ik == 0)
+                    {
+#if RFICENCRYPTENABLE == NOENCRYPT
+                        ticketBuf.fill(0,16);
+                        ToFormTicket(snrRead+ticketBuf,1,0x01);
+#else
+                        ik = WELLLoadKey(snrRead,1);
+                        if(ik == 0)
+                        {
+                            ik = WELLReadBlock(1);
+                            if(ik == 0)
+                            {
+                                ticketType = (quint8)ticketBuf.data()[0];
+                                emit TicketDebug(QString("ticketType:0x%1").arg(ticketType, 2, 16, (QChar)'0'));
+                                switch(ticketType)
+                                {
+                                case 0xa0:
+                                case 0xa1:
+                                case 0xa2:
+                                case 0xa3:
+                                case 0xa4:
+                                case 0xa5:
+                                case 0xa6:
+                                {
+                                    ToFormTicket(ticketBuf,0,ticketType);
+                                    msleep(1000);
+                                    break;
+                                }
+                                default:
+                                {
+                                    ik = WELLGetType();
+                                    if(ik == 0)
+                                    {
+                                        ik = WELLLoadKey(snrRead,4);
+                                        if(ik == 0)
+                                        {
+                                            ik = WELLReadBlock(4);
+                                            if(ik == 0)
+                                            {
+                                                ToFormTicket(snrRead+ticketBuf,1,0x01);
+                                            }
+
+                                        }
+                                    }
+                                    break;
+                                }
+                                }
+                            }
+                        }
+#endif
+
+                    }
+                }
+                else
+                {
+                    findType = 1;
+                    ik = XZXReadID0();
+                    if(1)
+                    {
+                        ik = XZXReadID1();
+                        if(ik == 1)
+                            ik = XZXReadID1();
+                        if(ik == 1)
+                            ik = XZXReadID1();
+                        if(ik == 0)
+                        {
+                            ik = XZXReadID2();
+                            if(ik == 0)
+                            {
+                                ik = XZXReadID3();
+                                if(ik == 0)
+                                {
+                                    ToFormTicket(ticketBuf,1,0x02);
+                                }
+                                else if(ik==2)
+                                {
+                                    qDebug() << "shu ju mei you du wan";
+                                }
+                            }
+                        }
+                    }
+                }
+                if(!idCardEnable)
+                    msleep(300);
+            }
+            break;
+        }
+#if HARDWAREVER != SDE_GA502_1_3 && HARDWAREVER != SDE_GA503_1_0
+        case 0x0A://维尔USB二合一读卡器
+        {
+            emit TicketDebug("Wellcom Usb Two-in-one Card Reader run");
+            findType = 1;
+            while(1)
+            {
+                if(wellUsbOk)
+                {
+                    if(findType)//IC卡
+                    {
+                        if(idCardEnable)
+                            findType = 0;
+                        ik = WELLUSBFindCard(TypeA);
+                        if(ik == 0)
+                        {
+                            ik = WELLUSBSelectCard(TypeA);
+                            if(ik == 0)
+                            {
+                                ik = WELLUSBReadUID(TypeA);
+                                if(ik == 0)
+                                {
+#if RFICENCRYPTENABLE == NOENCRYPT
+                                    ticketBuf.resize(16);
+                                    ticketBuf.fill(0);
+                                    ToFormTicket(snrRead+ticketBuf, 1, 0x01);
+                                    WELLUSBBeepControl(1);
+#else
+                                    ik = WELLUSBKeyAuth(snrRead,1);
+                                    if(0 == ik)
+                                    {
+                                        ik = WELLUSBReadBlock(1);
+                                        if(0 == ik)
+                                        {
+                                            ticketType = (quint8)ticketBuf.data()[0];
+                                            emit TicketDebug(QString("ticketType:0x%1").arg(ticketType, 2, 16, (QChar)'0'));
+                                            switch(ticketType)//01、会员卡(年卡) 02、储值卡 03、门票卡即腕带卡 04、员工卡
+                                            {
+                                            case 0x01:
+                                            {
+                                                ik = WELLUSBKeyAuth(snrRead, 4);
+                                                if(ik == 0)
+                                                {
+                                                    ik = WELLUSBReadBlock(4);
+                                                    if(ik == 0)
+                                                    {
+                                                        ToFormTicket(snrRead+ticketBuf,1,0xc0+ticketType);
+                                                        WELLUSBBeepControl(1);
+                                                    }
+                                                }
+                                                break;
+                                            }
+                                            case 0xa0:
+                                            case 0xa1:
+                                            case 0xa2:
+                                            case 0xa3:
+                                            case 0xa4:
+                                            case 0xa5:
+                                            case 0xa6:
+                                            {
+                                                ToFormTicket(ticketBuf,0,ticketType);
+                                                WELLUSBBeepControl(1);
+                                                msleep(1000);
+                                                break;
+                                            }
+                                            default:
+                                            {
+                                                ik = WELLUSBKeyAuth(snrRead,4);
+                                                if(ik == 0)
+                                                {
+                                                    ik = WELLUSBReadBlock(4);
+                                                    if(ik == 0)
+                                                    {
+                                                        ToFormTicket(snrRead+ticketBuf,1,0xc0+ticketType);
+                                                        WELLUSBBeepControl(1);
+                                                    }
+                                                }
+                                                break;
+                                            }
+                                            }
+                                        }
+                                    }
+#endif
+                                }
+                            }
+                        }
+                    }
+                    else//二代证
+                    {
+                        findType = 1;
+                        ik = WELLUSBFindID();
+                        if(ik == 0)
+                        {
+                            ik = WELLUSBSelectID();
+                            if(ik == 0)
+                            {
+                                ik = WELLUSBReadID();
+                                if(ik == 0)
+                                {
+                                    ToFormTicket(ticketBuf,1,0x02);
+                                    WELLUSBBeepControl(1);
+                                }
+                            }
+                        }
+                    }
+                    msleep(100);
+                }
+                else
+                {
+                    msleep(1000);
+                    WELLUSBInit();
+                }
+            }
+            break;
+        }
+#endif
+        default:
+        {
+            qDebug("devType = %d",devType);
+            break;
+        }
+    }
+}
+
+QByteArray RfidThread::ReadMyCom(int timems)
+{
+    if(comOpenErr)return 0;
+    if(IsComOnboardFlag)
+    {
+        QByteArray temp;
+        timeval tv;
+        int nread;
+        fd_set rfds;
+        char buff[512];
+
+        int time = 0;
+        int i=0;
+
+        int readFlag = 0;
+        bool dataFlag = 0;
+        temp.resize(0);
+
+        while(time < timems)
+        {
+            tv.tv_sec=0;
+            tv.tv_usec=500;
+            FD_ZERO(&rfds);
+            FD_SET(fp, &rfds);
+
+            readFlag = select(1+fp, &rfds, NULL, NULL, &tv);
+            if (readFlag > 0)
+            {
+                dataFlag = 1;
+                if (FD_ISSET(fp, &rfds))
+                {
+                    nread = read(fp, buff, 512);
+
+                    for(i=0;i<nread;i++)
+                    {
+                        temp[temp.length()] = buff[i];
+                    }
+                }
+            }
+            if((readFlag == 0)&&dataFlag)
+            {
+                dataFlag = 0;
+                return temp;
+            }
+            msleep(readComDelayTime);
+            time++;
+        }
+        return temp;
+    }
+    else
+    {
+        QByteArray temp;
+        QByteArray buf;
+        int time = 0;
+        bool readflag = 0;
+        while(time < timems)
+        {
+            buf = myCom->readAll();
+            if(buf.isEmpty() && (readflag == 0))
+            {
+            }
+            else if((!buf.isEmpty()) && (readflag))
+            {
+                temp += buf;
+                readflag = 1;
+            }
+            else if((!buf.isEmpty()) && (readflag == 0))
+            {
+                temp = buf;
+                readflag = 1;
+                time = 0;
+            }
+            else if(buf.isEmpty() && readflag)
+            {
+                return temp;
+            }
+            msleep(readComDelayTime);
+            time++;
+        }
+        return temp;
+    }
+}
+
+quint8 RfidThread::Rc500GetType()
+{
+    char buf[] = {0xaa,0x00,0xaa};
+    QByteArray temp;
+    QByteArray wrbuf = QByteArray::fromRawData(buf,sizeof(buf));
+
+    SendBuf("Rc500GetType", wrbuf);
+    temp = ReadMyCom(100);
+
+    if((temp.size() == 6)&&((quint8)temp.data()[1] == 0x00)&&((quint8)temp.data()[2] == 0x02))
+    {
+        if((rfidflag == 2) || (rfidflag == 0))
+        {
+            rfidflag = 1;
+            emit TicketDebug("The RC500 card reader is connected!!!");
+            ToFormTicket(0, 1, 0xff);
+        }
+        return 0;
+    }
+    else if(((quint8)temp.size() == 4)&&((quint8)temp.data()[1] == 0x01))
+    {
+        if((rfidflag == 2) || (rfidflag == 0))
+        {
+            rfidflag = 1;
+            emit TicketDebug("The RC500 card reader is connected!!!");
+            ToFormTicket(0, 1, 0xff);
+        }
+        return 1;
+    }
+    else//ic卡连接错误
+    {
+        if((rfidflag == 1) || (rfidflag == 0))
+        {
+            rfidflag = 2;
+            emit TicketDebug("The RC500 card reader is disconnected!!!");
+            ToFormTicket(0, 1, 0xfe);
+        }
+        return 2;
+    }
+}
+quint8 RfidThread::Rc500GetSnr()
+{
+    char buf[] = {0xab,0x00,0xab};
+    QByteArray temp;
+    QByteArray wrbuf = QByteArray::fromRawData(buf,sizeof(buf));
+
+    SendBuf("Rc500GetSnr", wrbuf);
+    temp = ReadMyCom(100);
+
+    if((temp.size() == 8)&&((quint8)temp.data()[1] == 0x00)&&((quint8)temp.data()[2] == 0x04))
+    {
+        snrRead = temp.mid(3,4);
+        emit TicketDebug("Rc500GetSnr snrRead:"+BgComm::ByteArrayToString(snrRead, 16, true));
+        return 0;
+    }
+    else
+    {
+        emit TicketDebug("Rc500GetSnr error!!!");
+        return 1;
+    }
+}
+quint8 RfidThread::Rc500LoadKey(QByteArray snr, quint8 fan)
+{
+    QByteArray wrbuf;
+    QByteArray temp;
+
+    wrbuf[0] = 0xa4;
+    wrbuf[1] = 0x07;
+
+    wrbuf[2] = fan;
+    if(fan == 0)
+    {
+        char pd[] = {0xff,0xff,0xff,0xff,0xff,0xff};
+        QByteArray pdbuf = QByteArray::fromRawData(pd,sizeof(pd));
+        wrbuf += pdbuf;
+    }
+    else
+    {
+        char fixup[] = {0x31,0x00,0x12};
+        QByteArray fix = QByteArray::fromRawData(fixup,3);
+        wrbuf += QCryptographicHash::hash(BgComm::ByteArrayToString(snr+fix).toAscii()+passWord,QCryptographicHash::Md5).mid(0,6);
+    }
+
+    wrbuf += BgComm::XORVerify(wrbuf);
+    SendBuf("Rc500LoadKey", wrbuf);
+
+    temp = ReadMyCom(100);
+    if((temp.size() == 4)&&(temp.data()[1] == 0x00))
+    {
+        return 0;
+    }
+    else
+    {
+        qDebug("Rc500LoadKey fan:%d, error!!!",fan);
+        return 1;
+    }
+}
+quint8 RfidThread::Rc500ReadBlock(QByteArray snr, quint8 block)
+{
+    QByteArray wrbuf;
+    QByteArray temp;
+
+    wrbuf[0] = 0xac;
+    wrbuf[1] = 0x05;
+    wrbuf[2] = block;
+    wrbuf += snr;
+    wrbuf += BgComm::XORVerify(wrbuf);
+
+    SendBuf("Rc500ReadBlock", wrbuf);
+    temp = ReadMyCom(100);
+
+    if(temp.size() >= 20)
+    {
+        ticketBuf = temp.mid(3,16);
+        emit TicketDebug("Rc500ReadBlock block:"+QString::number(block)+", ticketBuf:"+BgComm::ByteArrayToString(ticketBuf, 16, true));
+        return 0;
+    }
+    else
+    {
+        qDebug("Rc500ReadBlock block:%d, error!!!",block);
+        return 1;
+    }
+}
+void RfidThread::Rc500Beep()
+{
+    char buf[] = {0x7a,0x04,0x04,0x0a,0x0a,0x00,0x7b};
+    QByteArray wrbuf = QByteArray::fromRawData(buf,sizeof(buf));
+    SendBuf("Rc500Beep", wrbuf);
+    ReadMyCom(100);
+}
+void RfidThread::Rc500Halt()
+{
+    char buf[3] = {0xbd,0x00,0xbd};
+    QByteArray wrbuf = QByteArray::fromRawData(buf,sizeof(buf));
+    SendBuf("Rc500Halt", wrbuf);
+}
+
+QByteArray RfidThread::ReadMyCom2(int timems)
+{
+    QByteArray temp;
+    QByteArray buf;
+    int time = 0;
+    bool readflag = 0;
+    while(time<timems)
+    {
+        buf = myCom->readAll();
+
+        if(buf.isEmpty() && (readflag == 0))
+        {
+        }
+        else if((!buf.isEmpty()) && readflag)
+        {
+            temp += buf;
+            readflag = 1;
+            if(temp.length()>=180)
+                return temp;
+        }
+        else if((!buf.isEmpty()) && (readflag == 0))
+        {
+            temp = buf;
+            readflag = 1;
+            time = 0;
+            if(temp.length() >= 180)
+                return temp;
+        }
+        else if(buf.isEmpty() && readflag)
+        {
+            return temp;
+        }
+        msleep(readComDelayTime);
+        time++;
+    }
+    return temp;
+}
+
+quint8 RfidThread::HSGetIcType()
+{
+    char wrdata[] = {0xAA,0xAA,0xAA,0x96,0x69, 0x00,0x04, 0x00,0x61, 0x00,0x65};
+    QByteArray temp;
+
+    QByteArray wrbuf = QByteArray::fromRawData(wrdata,sizeof(wrdata));
+    SendBuf("HSGetIcType", wrbuf);
+    temp = ReadMyCom(100);
+
+    if(((quint8)temp.data()[0] == 0xAA)&&((quint8)temp.data()[6] == 0x0A)&&((quint8)temp.data()[9] == 0x00)&&(temp.length() == 17))
+    {
+        snrRead = temp.mid(10,4);
+        emit TicketDebug("HSGetIcType snrRead:"+BgComm::ByteArrayToString(snrRead, 16, true));
+        return 0;
+    }
+    else if(((quint8)temp.data()[0] == 0xAA)&&(temp.length() == 11))
+    {
+        //CardSnr.resize(0);
+        return 1;
+    }
+    else
+    {
+        // CardSnr.resize(0);
+        return 2;
+    }
+}
+quint8 RfidThread::HSLoadkey(QByteArray snr)
+{
+    QByteArray temp;
+    char fixup[] = {0x31,0x00,0x12};
+    QByteArray fix = QByteArray::fromRawData(fixup,3);
+
+    char mydata[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x09,0x00,0x31};
+    QByteArray senddata = QByteArray::fromRawData(mydata, sizeof(mydata));
+    senddata += QCryptographicHash::hash(BgComm::ByteArrayToString(snr+fix).toAscii()+passWord,QCryptographicHash::Md5).mid(0,6);
+    senddata += BgComm::XORVerify(senddata.mid(5, senddata.length()-5));
+
+    SendBuf("HSLoadkey", senddata);
+    temp = ReadMyCom(500);
+
+    if(((quint8)temp.data()[0] == 0xAA)&&((quint8)temp.data()[6] == 0x04)&&((quint8)temp.data()[8] == 0x00)&&((quint8)temp.data()[9] == 0x00))
+    {
+        return 0;
+    }
+    else
+    {
+        qDebug()<<"HSLoadkey error!!!";
+        return 1;
+    }
+}
+quint8 RfidThread::HSVerifyKey(QByteArray snr,quint8 fan)
+{
+    QByteArray temp;
+    char mydata[] = {0xAA,0xAA,0xAA,0x96,0x69, 0x00,0x09, 0x00,0x33, 0x60};
+    QByteArray senddata = QByteArray::fromRawData(mydata, sizeof(mydata));
+    senddata[senddata.length()] = fan*4;
+    senddata += snr;
+    senddata += BgComm::XORVerify(senddata.mid(5, senddata.length()-5));
+
+    SendBuf("HSVerifyKey", senddata);
+    temp = ReadMyCom(100);
+
+    if(((quint8)temp.data()[0] == 0xAA)&&((quint8)temp.data()[6] == 0x04)&&((quint8)temp.data()[7] == 0x00)&&((quint8)temp.data()[8] == 0x00)&&((quint8)temp.data()[9] == 0x00))
+    {
+        return 0;
+    }
+    else
+    {
+        qDebug()<<"HSVerifyKey error!!!";
+        return 1;
+    }
+}
+quint8 RfidThread::HSReadIcData(quint8 fan, quint8 n)
+{
+    QByteArray temp;
+    char mydata[] = {0xAA,0xAA,0xAA,0x96,0x69, 0x00,0x05, 0x00,0x34};
+    QByteArray senddata = QByteArray::fromRawData(mydata, sizeof(mydata));
+    senddata[senddata.length()] = fan*4;
+    senddata[senddata.length()] = n;
+    senddata += BgComm::XORVerify(senddata.mid(5, senddata.length()-5));
+
+    SendBuf("HSReadIcData", senddata);
+    temp = ReadMyCom(100);
+
+    if(((quint8)temp.data()[0] == 0xAA)&&((quint8)temp.data()[7] == 0x00)&&((quint8)temp.data()[8] == 0x00)&&((quint8)temp.data()[9] == 0x00))
+    {
+        ticketBuf = temp.mid(10,temp.length()-11);
+        qDebug()<<"HSReadIcData block:"+QString::number(fan*4+n)+", ticketBuf:"+BgComm::ByteArrayToString(ticketBuf, 16, true);
+        return 0;
+    }
+    else
+    {
+        qDebug("HSReadIcData block:%d, error!!!",fan*4+n);
+        return 1;
+    }
+}
+
+quint8 RfidThread::HSGetIdType()
+{
+    char wrdata[] = {0xAA,0xAA,0xAA,0x96,0x69, 0x00,0x03, 0x00,0x81, 0x82};
+    QByteArray temp;
+
+    QByteArray wrbuf = QByteArray::fromRawData(wrdata,sizeof(wrdata));
+    SendBuf("HSGetIdType", wrbuf);
+    temp = ReadMyCom(100);
+
+    //AA AA AA 96 69 00 06 04 00 F1 F5
+    //AA AA AA 96 69 82 0A 18 04 40 3E EE AE 19 24 08 69   find card
+    if(((quint8)temp.data()[0] == 0xAA)&&((quint8)temp.data()[6] == 0x08)&&((quint8)temp.data()[9] == 0x9f))
+    {
+
+        return 0;
+    }
+    else if((quint8)temp.data()[0] == 0xAA)
+        return 1;
+    else
+        return 2;
+}
+
+quint8 RfidThread::HSSelectID()
+{
+    QByteArray temp;
+    char mydata[] = {0xAA,0xAA,0xAA,0x96,0x69, 0x00,0x03, 0x00,0x82, 0x81};
+    QByteArray senddata = QByteArray::fromRawData(mydata, sizeof(mydata));
+
+    SendBuf("HSSelectID", senddata);
+    temp = ReadMyCom(100);
+
+    if(((quint8)temp.data()[0] == 0xAA)&&((quint8)temp.data()[6] == 0x0C)&&((quint8)temp.data()[7] == 0x00)&&((quint8)temp.data()[8] == 0x00)&&((quint8)temp.data()[9] == 0x90))
+    {
+        return 0;
+    }
+    else
+    {
+        qDebug()<<"HSSelectID error!!!";
+        return 1;
+    }
+}
+
+quint8 RfidThread::HSReadIdData()
+{
+    QByteArray temp;
+    char mydata[] = {0xAA,0xAA,0xAA,0x96,0x69, 0x00,0x03, 0x00,0x83, 0x80};
+    QByteArray senddata = QByteArray::fromRawData(mydata, sizeof(mydata));
+
+    SendBuf("HSReadIdData", senddata);
+    temp = ReadMyCom2(1000);
+
+    if(((quint8)temp.data()[0] == 0xAA)&&((quint8)temp.data()[7] == 0x00)&&((quint8)temp.data()[8] == 0x00)&&((quint8)temp.data()[9] == 0x90)&&(temp.length() >= 200))
+    {
+        QByteArray IdSnr;
+
+        for(quint8 i=0;i<18;i++)
+        {
+            IdSnr[i] = temp.data()[136+i*2];
+        }
+        ticketBuf = IdSnr;
+        emit TicketDebug("HSReadIdData id:"+BgComm::ByteArrayToString(IdSnr, 16, true));
+        return 0;
+    }
+    else
+    {
+        qDebug()<<"HSReadIdData error!!!";
+        return 1;
+    }
+}
+
+quint8 RfidThread::XZXReadID0()
+{
+    char cmd[]={0xAA,0xAA ,0xAA ,0x96 ,0x69 ,0x00 ,0x03 ,0x11 ,0xFF ,0xED};
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+
+    SendBuf("XZXReadID0", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+
+    if(((quint8)temp.data()[0] == 0xaa)&&((quint8)temp.data()[6] == 0x04)&&((quint8)temp.data()[9] == 0x90))
+    {
+        if((rfidflag == 2) || (rfidflag == 0))
+        {
+            rfidflag = 1;
+            emit TicketDebug("The XZXReadID0 card reader is connected!!!");
+            ToFormTicket(0, 1, 0xff);
+        }
+        return 0;
+    }
+    else//ic卡连接错误
+    {
+        if((rfidflag == 1) || (rfidflag == 0))
+        {
+            rfidflag = 2;
+            emit TicketDebug("The XZXReadID0 card reader is disconnected!!!");
+            ToFormTicket(0, 1, 0xfe);
+        }
+        return 1;
+    }
+}
+quint8 RfidThread::XZXReadID1()
+{
+    char cmd[] = {0xAA,0xAA ,0xAA ,0x96 ,0x69 ,0x00 ,0x03 ,0x20 ,0x01 ,0x22};
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    SendBuf("XZXReadID1", writedata);
+
+    QByteArray temp;
+    temp = ReadMyCom(200);
+    if((((quint8)temp.data()[0] == 0xaa)&&((quint8)temp.data()[6] == 0x08)&&((quint8)temp.data()[9] == 0x9f)))
+    {   
+        return 0;
+    }
+    else//ic卡连接错误
+    {
+        return 1;
+    }
+}
+quint8 RfidThread::XZXReadID2()
+{
+    char cmd[] = {0xAA,0xAA ,0xAA ,0x96 ,0x69 ,0x00 ,0x03 ,0x20 ,0x02 ,0x21};
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    SendBuf("XZXReadID2", writedata);
+
+    QByteArray temp;
+    temp = ReadMyCom(200);
+    if((((quint8)temp.data()[0] == 0xaa)&&((quint8)temp.data()[6] == 0x0c)&&((quint8)temp.data()[9] == 0x90))|| (((quint8)temp.data()[0] == 0xaa)&&((quint8)temp.data()[6] == 0x04)&&((quint8)temp.data()[9] == 0x81)))
+    {
+        return 0;
+    }
+    else//ic卡连接错误
+    {
+        return 1;
+    }
+}
+quint8 RfidThread::XZXReadID3()
+{
+    int i;
+    char cmd[] = {0xAA,0xAA ,0xAA ,0x96 ,0x69 ,0x00 ,0x03 ,0x30 ,0x01 ,0x32};
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    SendBuf("XZXReadID3", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+    if(temp.size()<170)
+    {
+        temp += ReadMyCom(20);
+        if(temp.size()<170)
+            return 2;
+    }
+    if(((quint8)temp.data()[0] == 0xaa)&&((quint8)temp.data()[6] == 0x08)&&((quint8)temp.data()[9] == 0x90))
+    {
+//        unsigned char pucPHMsg[1024];	//照片信息
+//        for(int i=0;i<1024;i++)
+//            pucPHMsg[i]=temp.data()[i+270];
+//        FILE * fp;
+//        fp = fopen("./tmp.WLT","wb");
+//        fwrite(pucPHMsg,1,1024,fp);
+//        fclose(fp);
+
+//        emit TicketDebug(BgComm::ByteArrayToString(temp, 16, true));
+        for(i=0;i<18;i++)
+        {
+            ticketBuf[i] = temp.data()[136+2*i];
+        }
+#if PERIDMATCH
+            for(i=0;i<30;i++)
+            {
+                ticketBuf[i+18] = temp.data()[14+i];
+            }
+            for(i=0;i<1024;i++)
+            {
+                 ticketBuf[i+48] = temp.data()[270+i];
+            }
+#endif
+
+#if IDPICDISPLAY
+        char pucPHMsg[1024];	//照片信息
+        for(i=0;i<1024;i++)
+            pucPHMsg[i]=temp.data()[i+270];
+
+        char outData[102*126*3];
+        void *handle;
+        handle = dlopen("/usr/share/welidl/lib/libwlt.so", RTLD_LAZY);
+        int ret = unpack(pucPHMsg, outData, 763);
+        dlclose(handle);
+#endif
+        return 0;
+    }
+    else//ic卡连接错误
+        return 1;
+}
+
+quint8 RfidThread::XZXGetSnr(void)
+{
+    char cmd[] = {0xA5,0xA5 ,0xA5 ,0x96 ,0x69 ,0x00 ,0x05 ,0x01 ,0x01 ,0x00,0x00,0x05};
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd));
+    SendBuf("XZXGetSnr", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+    if(((quint8)temp.data()[0] == 0xa5)&&((quint8)temp.data()[7] == 0x01)&&((quint8)temp.data()[8] == 0x02)&&((quint8)temp.data()[10] == 0x90))
+    {
+        if((rfidflag == 2) || (rfidflag == 0))
+        {
+            rfidflag = 1;
+            emit TicketDebug("The XZXGetSnr card reader is connected!!!");
+            ToFormTicket(0, 1, 0xff);
+        }
+        snrRead = temp.mid(11,4);
+        emit TicketDebug("XZXGetSnr snrRead:"+BgComm::ByteArrayToString(snrRead, 16, true));
+        return 0;
+    }
+    else if(((quint8)temp.data()[0] == 0xa5)&&((quint8)temp.data()[7] == 0x01)&&((quint8)temp.data()[8] == 0x02))
+    {
+        if((rfidflag == 2) || (rfidflag == 0))
+        {
+            rfidflag = 1;
+            emit TicketDebug("The XZXGetSnr card reader is connected!!!");
+            ToFormTicket(0, 1, 0xff);
+        }
+        return 1;
+    }
+    else
+    {
+        if((rfidflag == 1) || (rfidflag == 0))
+        {
+            rfidflag = 2;
+            emit TicketDebug("The XZXGetSnr card reader is disconnected!!!");
+            ToFormTicket(0, 1, 0xfe);
+        }
+        return 2;
+    }
+}
+quint8 RfidThread::XZXHalt(void)
+{
+    char cmd[] = {0xA5,0xA5 ,0xA5 ,0x96 ,0x69 ,0x00 ,0x05 ,0x01 ,0x09 ,0x00,0x00,0x0d};
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    SendBuf("XZXHalt", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+    return 0;
+}
+quint8 RfidThread::XZXbeep(void)
+{
+    char cmd[] = {0xA5,0xA5 ,0xA5 ,0x96 ,0x69 ,0x00 ,0x05 ,0x00 ,0x03 ,0x01,0x05,0x02};
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    SendBuf("XZXbeep", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+    return 0;
+}
+quint8 RfidThread::XZXLoadKey(QByteArray snr,quint8 fan)
+{
+    char fixup[] = {0x31,0x00,0x12};
+    QByteArray fix = QByteArray::fromRawData(fixup,3);
+
+    QByteArray aa = QCryptographicHash::hash(BgComm::ByteArrayToString(snr+fix).toAscii()+passWord,QCryptographicHash::Md5).mid(0,6);
+    char cmd[] = {0x00 ,0x0B ,0x01 ,0x10,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff};
+
+    cmd[4] = fan;
+    if(fan != 0)
+    {
+        cmd[6] = aa.data()[0];
+        cmd[7] = aa.data()[1];
+        cmd[8] = aa.data()[2];
+        cmd[9] = aa.data()[3];
+        cmd[10] = aa.data()[4];
+        cmd[11] = aa.data()[5];
+    }
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    writedata += BgComm::XORVerify(writedata);
+    writedata.insert(0,0x69);
+    writedata.insert(0,0x96);
+    writedata.insert(0,0xa5);
+    writedata.insert(0,0xa5);
+    writedata.insert(0,0xa5);
+
+    SendBuf("XZXLoadKey", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+    if(((quint8)temp.data()[0] == 0xa5)&&((quint8)temp.data()[7] == 0x01)&&((quint8)temp.data()[8] == 0x011)&&((quint8)temp.data()[10] == 0x90))
+    {
+        return 0;
+    }
+    else
+    {
+        qDebug("XZXLoadKey fan:%d, error!!!",fan);
+        return 1;
+    }
+}
+quint8 RfidThread::XZXYZKey(QByteArray snr,quint8 fan)
+{
+    char fixup[] = {0x31,0x00,0x12};
+    QByteArray fix = QByteArray::fromRawData(fixup,3);
+
+    QByteArray aa = QCryptographicHash::hash(BgComm::ByteArrayToString(snr+fix).toAscii()+passWord,QCryptographicHash::Md5).mid(0,6);
+    char cmd[] = {0x00 ,0x0B ,0x01 ,0x12,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff};
+
+    cmd[4] = fan;
+    if(fan!=0)
+    {
+        cmd[6] = aa.data()[0];
+        cmd[7] = aa.data()[1];
+        cmd[8] = aa.data()[2];
+        cmd[9] = aa.data()[3];
+        cmd[10] = aa.data()[4];
+        cmd[11] = aa.data()[5];
+    }
+
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    writedata += BgComm::XORVerify(writedata);
+    writedata.insert(0,0x69);
+    writedata.insert(0,0x96);
+    writedata.insert(0,0xa5);
+    writedata.insert(0,0xa5);
+    writedata.insert(0,0xa5);
+
+    SendBuf("XZXYZKey", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+    if(((quint8)temp.data()[0] == 0xa5)&&((quint8)temp.data()[7] == 0x01)&&((quint8)temp.data()[8] == 0x13)&&((quint8)temp.data()[10] == 0x90))
+    {
+        return 0;
+    }
+    else
+    {
+        qDebug("XZXYZKey fan:%d, error!!!",fan);
+        return 1;
+    }
+}
+quint8 RfidThread::XZXYZReadBlock(quint8 block)
+{
+    char cmd[] = {0x00,0x05,0x01,0x05,0x00,0x00};
+    cmd[4] = block;
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    writedata += BgComm::XORVerify(writedata);
+    writedata.insert(0,0x69);
+    writedata.insert(0,0x96);
+    writedata.insert(0,0xa5);
+    writedata.insert(0,0xa5);
+    writedata.insert(0,0xa5);
+
+    SendBuf("XZXYZReadBlock", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+    if(((quint8)temp.data()[0] == 0xa5)&&((quint8)temp.data()[7] == 0x01)&&((quint8)temp.data()[8] == 0x06)&&((quint8)temp.data()[10] == 0x90))
+    {
+        ticketBuf = temp.mid(11,16);
+        emit TicketDebug("XZXYZReadBlock block:"+QString::number(block)+", ticketBuf:"+BgComm::ByteArrayToString(ticketBuf, 16, true));
+        return 0;
+    }
+    else
+    {
+        emit TicketDebug("XZXYZReadBlock block:"+QString::number(block)+", error!!!");
+        return 1;
+    }
+}
+
+quint8 RfidThread::JingLunM1GetType()
+{
+    char cmd[] = {0x55,0xaa,0x04,0x01,0xff,0xff};
+
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd));
+    writedata += BgComm::XORVerify(writedata);
+    SendBuf("JingLunM1GetType", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+
+    if((quint8)temp.data()[5] == 0xff)
+        return 0;
+    else
+        return 1;
+}
+quint8 RfidThread::JingLunM1GetSnr()
+{
+    char cmd[] = {0x55,0xaa,0x04,0x02,0xff,0xff};
+
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    writedata += BgComm::XORVerify(writedata);
+    SendBuf("JingLunM1GetSnr", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+
+    if((temp.size() == 10)&&((quint8)temp.data()[2] == 0x07)&&((quint8)temp.data()[3] == 0x02))
+    {
+        snrRead = temp.mid(5,4);
+        emit TicketDebug("JingLunM1GetSnr snrRead:"+BgComm::ByteArrayToString(snrRead, 16, true));
+        return 0;
+    }
+    else
+    {
+        emit TicketDebug("JingLunM1GetSnr error!!!");
+        return 1;
+    }
+}
+quint8 RfidThread::JingLunM1ReadBlock(QByteArray snr, quint8 block)
+{
+    char cmd[] = {0x55,0xaa,0x0c,0x03,0xff};
+
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    writedata += block/4;        //扇区号
+    writedata += block%4;        //块号
+    writedata += 0x60;           //密钥类型,1个字节;（两种：0x60 keyA，0x61 keyB）
+
+    if((block/4) == 0)
+    {
+        char pd[] = {0xff,0xff,0xff,0xff,0xff,0xff};
+        QByteArray pdbuf = QByteArray::fromRawData(pd,sizeof(pd));
+        writedata += pdbuf;
+    }
+    else
+    {
+        char fixup[] = {0x31,0x00,0x12};
+        QByteArray fix = QByteArray::fromRawData(fixup,3);
+        writedata += QCryptographicHash::hash(BgComm::ByteArrayToString(snr+fix).toAscii()+passWord,QCryptographicHash::Md5).mid(0,6);
+    }
+    writedata += BgComm::XORVerify(writedata);
+    SendBuf("JingLunM1ReadBlock", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+
+    if(((quint8)temp.data()[2] == 0x13)&&((quint8)temp.data()[3] == 0x03))
+    {
+        ticketBuf = temp.mid(5,16);
+        emit TicketDebug("JingLunM1ReadBlock block:"+QString::number(block)+", ticketBuf:"+BgComm::ByteArrayToString(ticketBuf, 16, true));
+        return 0;
+    }
+    else
+    {
+        emit TicketDebug("JingLunM1ReadBlock block:"+QString::number(block)+", error!!!");
+        return 1;
+    }
+}
+
+quint8 RfidThread::WELLGetType(void)
+{
+    char cmd[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x04,0x80,0x08,0x10,0x9C};
+
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    SendBuf("WELLGetType", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+
+    if(((quint8)temp.data()[0]== 0xAA)/*&&((quint8)temp.data()[6] == 0x08)*/&&((quint8)temp.data()[7] == 0x08)&&((quint8)temp.data()[9] == 0x90))
+    {
+        return 0;
+    }
+    else
+    {
+        return 1;
+    }
+}
+quint8 RfidThread::WELLGetSnr(void)
+{
+    char cmd[] =    {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x04,0x80,0x08,0x10,0x9C};
+    char cmd_ID[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x04,0x80,0x0A,0x10,0x9E};
+
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    SendBuf("WELLGetSnr", writedata);
+    QByteArray temp;
+    temp = ReadMyCom(200);
+
+    if(((quint8)temp.data()[0]== 0xAA)/*&&((quint8)temp.data()[6] == 0x08)*/&&((quint8)temp.data()[7] == 0x08)&&((quint8)temp.data()[9] == 0x90))
+    {
+        QByteArray writedata = QByteArray::fromRawData(cmd_ID,sizeof(cmd_ID)) ;
+        SendBuf("WELLGetSnr", writedata);
+        temp = ReadMyCom(200);
+        if(((quint8)temp.data()[0] == 0xAA)/*&&((quint8)temp.data()[6] == 0x08)*/&&((quint8)temp.data()[7] == 0x0A)&&((quint8)temp.data()[9] == 0x90))
+        {
+            snrRead = temp.mid(10,4);
+            emit TicketDebug("WELLGetSnr snrRead:"+BgComm::ByteArrayToString(snrRead, 16, true));
+            return 0;
+        }
+        if((rfidflag == 2) || (rfidflag == 0))
+        {
+            rfidflag = 1;
+            emit TicketDebug("The WELLGetSnr card reader is connected!!!");
+            ToFormTicket(0, 1, 0xff);
+        }
+        return 1;
+    }
+    else if(((quint8)temp.data()[0]== 0xAA)&&((quint8)temp.data()[7] == 0x08)&&((quint8)temp.data()[9] == 0x01))
+    {
+        if((rfidflag == 2) || (rfidflag == 0))
+        {
+            rfidflag = 1;
+            emit TicketDebug("The WELLGetSnr card reader is connected!!!");
+            ToFormTicket(0, 1, 0xff);
+        }
+        return 1;
+    }
+    else
+    {
+        if((rfidflag == 1) || (rfidflag == 0))
+        {
+            rfidflag = 2;
+            emit TicketDebug("The WELLGetSnr card reader is disconnected!!!");
+            ToFormTicket(0, 1, 0xfe);
+        }
+        return 2;
+    }
+}
+quint8 RfidThread::WELLLoadKey(QByteArray snr, quint8 block)
+{
+    char cmd[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x0A,0x80,0x0B,0x00};
+    QByteArray wrbuf;
+    QByteArray temp;
+
+    if(block/4 == 0)
+    {
+        char pd[] = {0xff,0xff,0xff,0xff,0xff,0xff};
+        wrbuf = QByteArray::fromRawData(cmd,sizeof(cmd));
+        wrbuf += QByteArray::fromRawData(pd,sizeof(pd));
+    }
+    else
+    {
+        cmd[9] = block ;
+        wrbuf  = QByteArray::fromRawData(cmd,10);
+
+        char fixup[] = {0x31,0x00,0x12};
+        QByteArray fix = QByteArray::fromRawData(fixup,3);
+        wrbuf += QCryptographicHash::hash(BgComm::ByteArrayToString(snr+fix).toAscii()+passWord,QCryptographicHash::Md5).mid(0,6);
+    }
+    wrbuf += BgComm::XORVerify(wrbuf.mid(5, wrbuf.length()-5));
+
+    SendBuf("WELLLoadKey", wrbuf);
+    temp = ReadMyCom(100);
+
+    if((temp.data()[6] == 0x04)&&(temp.data()[7] == 0x0B)&&(temp.data()[9] == 0x90))
+    {
+        return 0;
+    }
+    else
+    {
+        qDebug("WELLLoadKey block:%d, error!!!",block);
+        return 1;
+    }
+}
+quint8 RfidThread::WELLReadBlock(quint16 block)
+{
+    char cmd[] =  {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x07,0x80,0x0D,0x00,0x01,0x00,0x10,0x9B};
+
+    QByteArray wrbuf;
+    QByteArray temp;
+
+    cmd[9] = block/256;
+    cmd[10] = block%256;
+    cmd[11] = 0;
+    cmd[12] = 16;
+    wrbuf = QByteArray::fromRawData(cmd,sizeof(cmd)) ;
+    wrbuf += BgComm::XORVerify(wrbuf);
+
+    SendBuf("WELLReadBlock", wrbuf);
+    temp = ReadMyCom(100);
+
+    if((temp.data()[7] == 0x0D)&&(temp.data()[9] == 0x90))
+    {
+        ticketBuf = temp.mid(10,16);
+        emit TicketDebug("WELLReadBlock block:"+QString::number(block)+", ticketBuf:"+BgComm::ByteArrayToString(ticketBuf, 16, true));
+        return 0;
+    }
+    else
+    {
+        qDebug("WELLReadBlock block:%d, error!!!",block);
+        return 1;
+    }
+}
+#if HARDWAREVER != SDE_GA502_1_3 && HARDWAREVER != SDE_GA503_1_0
+int RfidThread::WELLUSBInit()
+{
+    //白盒黑LOGO-----0x2796,0x1001
+    if(WELLUSBOpen(0x2796,0x1001) == 0)
+    {
+        if((rfidflag == 2) || (rfidflag == 0))
+        {
+            rfidflag = 1;
+            emit TicketDebug("WELLUSBInit open usb success!");
+            ToFormTicket(0, 1, 0xff);
+            WELLUSBBeepControl(0);
+            WELLUSBFirmwareVersion();
+        }
+    }
+    else
+    {
+        if((rfidflag == 1) || (rfidflag == 0))
+        {
+            rfidflag = 2;
+            emit TicketDebug("WELLUSBInit open usb fail!");
+            ToFormTicket(0, 1, 0xfe);
+            return 1;
+        }
+    }
+    return 0;
+}
+int RfidThread::WELLUSBOpen(unsigned short vendor_id, unsigned short product_id)
+{
+    device = hid_open(vendor_id, product_id, NULL);
+    if(device)
+    {
+        wellUsbOk = 1;
+        return 0;
+    }
+    else
+    {
+        wellUsbOk = 0;
+        return -1;
+    }
+}
+int RfidThread::WELLUSBWrite(const unsigned char *buf, unsigned int count)
+{
+    unsigned char out[MAX_PACKAGE_SIZE + 1] = {0};
+    unsigned int remain = count;
+    unsigned int offset = 0;
+    int ret;
+
+    if(!device)
+        return -1;
+
+    while(remain > 0)
+    {
+        if(remain > MAX_PACKAGE_SIZE)
+        {
+            memcpy(out + 1, buf + offset, MAX_PACKAGE_SIZE);
+        }
+        else
+        {
+            memset(out + 1, 0, MAX_PACKAGE_SIZE);
+            memcpy(out + 1, buf + offset, remain);
+        }
+
+        ret = hid_send_feature_report(device, out, MAX_PACKAGE_SIZE + 1);
+        if(ret < 0)
+        {
+            wellUsbOk = 0;
+            return ret;
+        }
+        else if(ret == 0)
+        {
+            break;
+        }
+        else
+        {
+            if(remain <= (unsigned int)(ret -1))
+            {
+                offset += remain;
+                remain = 0;
+            }
+            else
+            {
+                offset += (ret - 1);
+                remain -= (ret - 1);
+            }
+        }
+    }
+    if(offset != count)
+    {
+        emit TicketDebug(QString("WELLUSBWrite count:%1, offset:%2, fail!").arg(count).arg(offset));
+    }
+    return offset;
+}
+int RfidThread::WELLUSBRead(unsigned char *buf, unsigned int count)
+{
+    unsigned char in[MAX_PACKAGE_SIZE + 1] = {0};
+    unsigned int remain = count;
+    unsigned int offset = 0;
+    int ret;
+
+    if(!device)
+        return -1;
+
+    while(remain > 0)
+    {
+        ret = hid_get_feature_report(device, in, MAX_PACKAGE_SIZE + 1);
+        ret -= 1;
+        if(ret < 0)
+        {
+            wellUsbOk = 0;
+            return ret;
+        }
+        else if(ret == 0)
+        {
+            break;
+        }
+        else
+        {
+            if(remain > MAX_PACKAGE_SIZE || remain > (unsigned int)ret)
+            {
+                memcpy(buf  + offset, in + 1, ret);
+                offset += ret;
+                remain -= ret;
+            }
+            else
+            {
+                memcpy(buf + offset, in + 1, remain);
+                offset += remain;
+                remain = 0;
+            }
+        }
+    }
+    return offset;
+}
+int RfidThread::WELLUSBFirmwareVersion()
+{
+    unsigned char cmd[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x03,0x80,0x01,0x82};//读版本号
+    unsigned char rsp[256] = {0};
+    quint8 ret;
+
+    ret = WELLUSBWrite(cmd, sizeof(cmd));
+    ret = WELLUSBRead(rsp, 64);
+
+    QByteArray rec;
+    for(int i = 0; i < 64; i++)
+    {
+        rec[i] = rsp[i];
+    }
+
+    if(((quint8)rec.data()[8] == 0x00)&&((quint8)rec.data()[9] == 0x90))
+    {
+        quint16 len = ((quint8)rec.data()[5])*256 + (quint8)rec.data()[6];
+        emit TicketDebug("WELLUSBFirmwareVersion:" + QString(rec.mid(10, len-4)));
+    }
+}
+void RfidThread::WELLUSBBeepControl(bool Beepswitch)
+{
+    char cmd_beepoff[] = {0xAA,0xAA,0xAA,0x96,0x69,
+                         0x00,0x04,0x80,0x17,0x01};                 //设置蜂鸣器
+    char cmd_beepon[] = {0xAA,0xAA,0xAA,0x96,0x69,
+                         0x00,0x06,0x80,0x15,0x00,0x01,0x00,0x60};  //蜂鸣器发声
+
+    unsigned char rsp[256];
+    QByteArray sendcmd;
+
+    if(Beepswitch)
+    {
+        sendcmd = QByteArray::fromRawData(cmd_beepon, sizeof(cmd_beepon));
+        sendcmd += BgComm::XORVerify(sendcmd.mid(5, sendcmd.length()-5));
+        WELLUSBWrite((unsigned char *)sendcmd.data(), sendcmd.length());//发声
+        WELLUSBRead(rsp, 64);
+    }
+    else
+    {
+        sendcmd = QByteArray::fromRawData(cmd_beepoff, sizeof(cmd_beepoff));
+        sendcmd += BgComm::XORVerify(sendcmd.mid(5, sendcmd.length()-5));
+        WELLUSBWrite((unsigned char *)sendcmd.data(), sendcmd.length());//关闭发声
+        WELLUSBRead(rsp, 64);
+    }
+}
+
+int RfidThread::WELLUSBFindCard(CardType type)
+{
+    char cmd[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x00,0x80,0x08};//按卡类型寻 Type：卡类型，0x00 -->TypeB，0x10 -->TypeA
+    unsigned char rsp[256] = {0};
+    quint8 ret;
+
+    QByteArray tmpCmd = QByteArray::fromRawData(cmd, sizeof(cmd));
+    if(type == TypeA)
+        tmpCmd[tmpCmd.length()] = 0x10;
+    else
+        tmpCmd[tmpCmd.length()] = 0x00;
+    tmpCmd[5] = (tmpCmd.length()-6)/256; //计算命令的长度
+    tmpCmd[6] = (tmpCmd.length()-6)%256; //计算命令的长度
+    tmpCmd += BgComm::XORVerify(tmpCmd.mid(5, tmpCmd.length()-5));//加校验位的
+    //emit TicketDebug("WELLUSBFindCard write:"+BgComm::ByteArrayToString(tmpCmd, 16, true));
+
+    ret = WELLUSBWrite((unsigned char *)tmpCmd.data(), tmpCmd.length());
+    ret = WELLUSBRead(rsp, 64);
+
+    QByteArray rec;
+    for(int i = 0; i < 64; i++)
+    {
+        rec[i] = rsp[i];
+    }
+
+    if(((quint8)rec.data()[8] == 0x00)&&((quint8)rec.data()[9] == 0x90))
+    {
+        //quint16 len = ((quint8)rec.data()[5])*256 + (quint8)rec.data()[6];
+        //emit TicketDebug("WELLUSBFindCard:" + BgComm::ByteArrayToString(rec.mid(10, len-4), 16, true));
+        return 0;
+    }
+    else
+        return -1;
+}
+int RfidThread::WELLUSBSelectCard(CardType type)
+{
+    char cmd[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x00,0x80,0x09};//按卡类型寻 Type：卡类型，0x00 -->TypeB，0x10 -->TypeA
+    unsigned char rsp[256] = {0};
+    quint8 ret;
+
+    QByteArray tmpCmd = QByteArray::fromRawData(cmd, sizeof(cmd));
+    if(type == TypeA)
+        tmpCmd[tmpCmd.length()] = 0x10;
+    else
+        tmpCmd[tmpCmd.length()] = 0x00;
+    tmpCmd[5] = (tmpCmd.length()-6)/256; //计算命令的长度
+    tmpCmd[6] = (tmpCmd.length()-6)%256; //计算命令的长度
+    tmpCmd += BgComm::XORVerify(tmpCmd.mid(5, tmpCmd.length()-5));//加校验位的
+    //emit TicketDebug("WELLUSBSelectCard write:"+BgComm::ByteArrayToString(tmpCmd, 16, true));
+
+    ret = WELLUSBWrite((unsigned char *)tmpCmd.data(), tmpCmd.length());
+    ret = WELLUSBRead(rsp, 64);
+
+    QByteArray rec;
+    for(int i = 0; i < 64; i++)
+    {
+        rec[i] = rsp[i];
+    }
+
+    if(((quint8)rec.data()[8] == 0x00)&&((quint8)rec.data()[9] == 0x90))
+    {
+        //quint16 len = ((quint8)rec.data()[5])*256 + (quint8)rec.data()[6];
+        //emit TicketDebug("WELLUSBSelectCard:" + BgComm::ByteArrayToString(rec.mid(10, len-4), 16, true));
+        return 0;
+    }
+    else
+        return -1;
+}
+int RfidThread::WELLUSBReadUID(CardType type)
+{
+    char cmd[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x00,0x80,0x0A};//按卡类型寻 Type：卡类型，0x00 -->TypeB，0x10 -->TypeA
+    unsigned char rsp[256] = {0};
+    quint8 ret;
+
+    QByteArray tmpCmd = QByteArray::fromRawData(cmd, sizeof(cmd));
+    if(type == TypeA)
+        tmpCmd[tmpCmd.length()] = 0x10;
+    else
+        tmpCmd[tmpCmd.length()] = 0x00;
+    tmpCmd[5] = (tmpCmd.length()-6)/256; //计算命令的长度
+    tmpCmd[6] = (tmpCmd.length()-6)%256; //计算命令的长度
+    tmpCmd += BgComm::XORVerify(tmpCmd.mid(5, tmpCmd.length()-5));//加校验位的
+    //emit TicketDebug("WELLUSBReadUID write:"+BgComm::ByteArrayToString(tmpCmd, 16, true));
+
+    ret = WELLUSBWrite((unsigned char *)tmpCmd.data(), tmpCmd.length());
+    ret = WELLUSBRead(rsp, 64);
+
+    QByteArray rec;
+    for(int i = 0; i < 64; i++)
+    {
+        rec[i] = rsp[i];
+    }
+
+    if(((quint8)rec.data()[8] == 0x00)&&((quint8)rec.data()[9] == 0x90))
+    {
+        quint16 len = ((quint8)rec.data()[5])*256 + (quint8)rec.data()[6];
+        snrRead = rec.mid(10, len-4);
+        emit TicketDebug("WELLUSBReadUID:" + BgComm::ByteArrayToString(snrRead, 16, true));
+        return 0;
+    }
+    else
+        return -1;
+}
+bool RfidThread::WELLUSBKeyAuth(QByteArray snr, quint8 block)
+{
+    char cmd[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x00,0x80,0x0b};
+    unsigned char rsp[256] = {0};
+    quint8 ret;
+
+    QByteArray tmpCmd = QByteArray::fromRawData(cmd, sizeof(cmd));
+    tmpCmd[tmpCmd.length()] = block;
+    if(block < 4)
+    {
+        char pd[] = {0xff,0xff,0xff,0xff,0xff,0xff};
+        QByteArray pdbuf = QByteArray::fromRawData(pd,sizeof(pd));
+        tmpCmd += pdbuf;
+    }
+    else
+    {
+        char fixup[] = {0x31,0x00,0x12};
+        QByteArray fix = QByteArray::fromRawData(fixup,3);
+        tmpCmd += QCryptographicHash::hash(BgComm::ByteArrayToString(snr+fix).toAscii()+passWord,QCryptographicHash::Md5).mid(0,6);//hash
+    }
+    tmpCmd += BgComm::XORVerify(tmpCmd.mid(5, tmpCmd.length()-5));
+
+    ret = WELLUSBWrite((unsigned char *)tmpCmd.data(), tmpCmd.length());
+    ret = WELLUSBRead(rsp, 64);
+
+    QByteArray rec;
+    for(int i = 0; i < 64; i++)
+    {
+        rec[i] = rsp[i];
+    }
+
+    if(((quint8)rec.data()[8] == 0x00)&&((quint8)rec.data()[9] == 0x90))
+    {
+        return 0;
+    }
+    else
+    {
+         emit TicketDebug(QString("WELLUSBKeyAuth block:%1, error!!!").arg(block));
+         return -1;
+    }
+}
+bool RfidThread::WELLUSBReadBlock(quint8 block)
+{
+    char cmd[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x00,0x80,0x0d,0x00};
+    unsigned char rsp[256] = {0};
+    quint8 ret;
+
+    QByteArray tmpCmd = QByteArray::fromRawData(cmd, sizeof(cmd));
+    tmpCmd[tmpCmd.length()] = block;
+    tmpCmd[tmpCmd.length()] = 0x10;
+    tmpCmd += BgComm::XORVerify(tmpCmd.mid(5, tmpCmd.length()-5));
+
+    ret = WELLUSBWrite((unsigned char *)tmpCmd.data(), tmpCmd.length());
+    ret = WELLUSBRead(rsp, 64);
+
+    QByteArray rec;
+    for(int i = 0; i < 64; i++)
+    {
+        rec[i] = rsp[i];
+    }
+
+    if(((quint8)rec.data()[8] == 0x00)&&((quint8)rec.data()[9] == 0x90))
+    {
+        ticketBuf = rec.mid(10,16);
+        emit TicketDebug(QString("WELLUSBReadBlock block:%1, success, ticketBuf:").arg(block) + BgComm::ByteArrayToString(ticketBuf, 16, true));
+        return 0;
+    }
+    else
+    {
+         emit TicketDebug(QString("WELLUSBReadBlock block:%1, error!!!").arg(block));
+         return -1;
+    }
+}
+
+int RfidThread::WELLUSBFindID()
+{
+    unsigned char cmd[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x03,0x20,0x01,0x22};
+    unsigned char rsp[256] = {0};
+    quint8 ret;
+
+    ret = WELLUSBWrite(cmd, sizeof(cmd));
+    ret = WELLUSBRead(rsp, 64);
+
+    QByteArray rec;
+    for(int i = 0; i < 64; i++)
+    {
+        rec[i] = rsp[i];
+    }
+
+    if(((quint8)rec.data()[8] == 0x00)&&((quint8)rec.data()[9] == 0x9f))
+    {
+        //quint16 len = ((quint8)rec.data()[5])*256 + (quint8)rec.data()[6];
+        //emit TicketDebug("WELLUSBFindID:" + QString(rec.mid(10, len-4)));
+        return 0;
+    }
+    else
+        return -1;
+}
+int RfidThread::WELLUSBSelectID()
+{
+    unsigned char cmd[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x03,0x20,0x02,0x21};
+    unsigned char rsp[256] = {0};
+    quint8 ret;
+
+    ret = WELLUSBWrite(cmd, sizeof(cmd));
+    ret = WELLUSBRead(rsp, 64);
+
+    QByteArray rec;
+    for(int i = 0; i < 64; i++)
+    {
+        rec[i] = rsp[i];
+    }
+
+    if(((quint8)rec.data()[8] == 0x00)&&((quint8)rec.data()[9] == 0x90))
+    {
+        //quint16 len = ((quint8)rec.data()[5])*256 + (quint8)rec.data()[6];
+        //emit TicketDebug("WELLUSBSelectID:" + QString(rec.mid(10, len-4)));
+        return 0;
+    }
+    else
+        return -1;
+}
+int RfidThread::WELLUSBReadID()
+{
+    unsigned char cmd[] = {0xAA,0xAA,0xAA,0x96,0x69,0x00,0x03,0x30,0x01,0x32};
+    unsigned char rsp[256] = {0};
+    quint8 ret;
+    QByteArray rec;
+    quint16 m = 0;
+    quint16 i;
+
+    ret = WELLUSBWrite(cmd, sizeof(cmd));
+    ret = WELLUSBRead(rsp, 64);
+    for(i = 0; i < 64; i++)
+    {
+        rec[m++] = rsp[i];
+    }
+
+    if(((quint8)rec.data()[8] == 0x00)&&((quint8)rec.data()[9] == 0x90))
+    {
+        quint16 len = ((quint8)rec.data()[5])*256 + (quint8)rec.data()[6];
+
+        if((len+7) > 64)
+        {
+            int packetNum;
+            len = len + 7 - 64;
+            if(len % 64)
+            {
+                packetNum = len/64 + 1;
+            }
+            else
+            {
+                packetNum = len/64;
+            }
+
+            for(int j=0; j<packetNum; j++)
+            {
+                ret = WELLUSBRead(rsp, 64);
+                for(i = 0; i < 64; i++)
+                {
+                    rec[m++] = rsp[i];
+                }
+            }
+        }
+        rec = rec.remove(0, 14);
+        //emit TicketDebug("WELLUSBReadID:"+BgComm::ByteArrayToString(rec, 16, true));
+        //字段名称:     姓名 性别 民族 出身日期	家庭住址 身份证号 发证机关 有效期 追加信息 照片信息
+        //长度（字节）:  30   2	   4	 16	   70	    36       30      32      36      1024
+        //地址位:        0   30    32    36        52       122      158     188     220     256
+
+        for(i=0;i<18;i++)
+        {
+            ticketBuf[i] = rec.data()[122+2*i];
+        }
+#if PERIDMATCH
+            for(i=0;i<30;i++)
+            {
+                ticketBuf[i+18] = rec.data()[i];
+            }
+            for(i=0;i<1024;i++)
+            {
+                 ticketBuf[i+48] = rec.data()[256+i];
+            }
+#endif
+        //emit TicketDebug("WELLUSBReadID ID:"+BgComm::ByteArrayToString(ticketBuf, 16, true));
+#if IDPICDISPLAY
+        char newData[1024];
+        char outData[102*126*3];
+        for(i=0;i<1024;i++)
+        {
+            newData[i] = rec.data()[256+i];
+        }
+        void *handle;
+        handle = dlopen("/usr/share/welidl/lib/libwlt.so", RTLD_LAZY);
+        ret = unpack(newData, outData, 763);
+        dlclose(handle);
+#endif
+        return 0;
+    }
+    else
+        return -1;
+}
+#endif
+quint8 RfidThread::SmReadblock(QByteArray snr, quint8 fan, quint8 block, quint8 n)
+{
+    //AA 55 + 长度(2) +  13  +  序列号（4字节） +  读第几个块 +  共读几个块  +  XX
+    QByteArray buf;
+    buf[0] = 0xaa;
+    buf[1] = 0x55;
+    buf[2] = 0x00;
+    buf[3] = 0x10;
+    buf[buf.length()] = 0x14;
+    buf += snr;
+
+    if(fan == 0)
+    {
+        char pd[] = {0xff,0xff,0xff,0xff,0xff,0xff};
+        QByteArray pdbuf = QByteArray::fromRawData(pd,sizeof(pd));
+        buf += pdbuf;
+    }
+    else
+    {
+        char fixup[] = {0x31,0x00,0x12};
+        QByteArray fix = QByteArray::fromRawData(fixup,3);
+        buf += QCryptographicHash::hash(BgComm::ByteArrayToString(snr+fix).toAscii()+passWord,QCryptographicHash::Md5).mid(0,6);
+    }
+
+    buf[buf.length()] = 0x0;
+    buf += block;
+    buf += n;
+    buf[buf.length()] = BgComm::SUMVerify(buf.mid(2, buf.length()-2));
+
+    SendBuf("SmReadblock", buf);
+    QByteArray temp;
+    temp = ReadMyCom(100);
+
+    //AA 55 + 长度(2) + 13 + 读卡标志(1字节) + 块数据(16的倍数) + XX
+    if((quint8)temp.data()[5] == 0x00)
+    {
+        ticketBuf = temp.mid(6,16);
+        emit TicketDebug("SmReadblock block:"+QString::number(block)+", ticketBuf:"+BgComm::ByteArrayToString(ticketBuf, 16, true));
+        return 0;
+    }
+    else if((quint8)temp.data()[5] == 0x01)
+    {
+        qDebug("SmReadblock fan:%d, key error!!!",fan);
+        ticketBuf.resize(0);
+        return 1;
+    }
+    else
+    {
+        qDebug("SmReadblock block:%d, error!!!",block);
+        ticketBuf.resize(0);
+        return 2;
+    }
+}
+
+quint8 RfidThread::SmHalt()
+{
+    char buf[] = {0xaa,0x55,0x00,0x03,0x17,0x26};
+    QByteArray sendbuf=QByteArray::fromRawData(buf,sizeof(buf));
+
+    SendBuf("SmHalt", sendbuf);
+    return 0;
+}
+
+quint8 RfidThread::SmRest()
+{
+    QByteArray temp;
+    char buf[] = {0xAA,0x55,0x00,0x04,0x37,0x01,0x3c};
+    QByteArray writedata = QByteArray::fromRawData(buf,sizeof(buf));
+
+    SendBuf("SmRest", writedata);
+    temp = ReadMyCom(100);
+
+    if((quint8)temp.data()[4] == 0x37)
+    {
+        return 0;
+    }
+    else
+    {
+        return 1;
+    }
+}
+void RfidThread::RestPSAM(void)
+{
+    quint8 ik;
+    quint8 rtimes;
+
+    rtimes = 0;
+    ik = 1;
+    while(ik && (rtimes < 3))
+    {
+        ik = SmRest();
+        rtimes++;
+    }
+    rtimes = 0;
+}
+quint8 RfidThread::SmGetSnr()
+{
+    //AA 55 00 03 10 XX
+    char buf[] = {0xaa,0x55,0x00,0x04,0x10,0x26,0x3a};
+    //AA 55 00 04 10  MODE XX
+    QByteArray temp;
+    QByteArray writedata = QByteArray::fromRawData(buf,sizeof(buf)) ;
+    SendBuf("SmGetSnr", writedata);
+    // qDebug()<<"SmGetSnr read send :0xaa,0x55,0x00,0x03,0x10,0x26,0x39";
+    temp = ReadMyCom(100);
+    //0  1   2  3  4     5     6 7  8  9   10
+    //AA 55 00 08 10   标志   00 00 00 00  XX
+    // qDebug()<<"SmGetSnr read cmd :"+BgComm::ByteArrayToString(temp, 16, true);
+    if((temp.size() >= 13)&&((quint8)temp.data()[5] == 0x00))
+    {
+        snrRead = temp.mid(8,4);
+        icType = (quint8)temp.data()[12];
+        if((rfidflag == 2) || (rfidflag == 0))
+        {
+            rfidflag = 1;
+            emit TicketDebug("The CPU card reader is connected!!!");
+            ToFormTicket(0, 1, 0xff);
+        }
+        return 0;
+    }
+    else if((temp.size() == 11))
+    {
+        if((rfidflag == 2) || (rfidflag == 0))
+        {
+            rfidflag = 1;
+            emit TicketDebug("The CPU card reader is connected!!!");
+            ToFormTicket(0, 1, 0xff);
+        }
+        return 1;
+    }
+    else//ic卡连接错误
+    {
+        if((rfidflag == 1) || (rfidflag == 0))
+        {
+            rfidflag = 2;
+            emit TicketDebug("The CPU card reader is disconnected!!!");
+            ToFormTicket(0, 1, 0xfe);
+        }
+        SmRest();
+        return 2;
+    }
+}
+quint8 RfidThread::SmMifiRest()
+{
+    //1、复位MIFIREPRO卡：AA 55 00 03 40 XX
+    char buf[] = {0xaa,0x55,0x00,0x03,0x40,0x43};
+    QByteArray temp;
+    QByteArray writedata = QByteArray::fromRawData(buf,sizeof(buf)) ;
+    SendBuf("SmMifiRest", writedata);
+    // qDebug()<<"Sm MIFIREPR rest send :0xaa,0x55,0x00,0x03,0x40,0x43";
+    temp = ReadMyCom(100);
+    //返回：AA 55 00 0C 40 09 78 00 B2 02 3F 43 54 4C A3（9字节的卡片复位信息）
+    //qDebug()<<"Sm MIFIREPR rest read :"+BgComm::ByteArrayToString(temp, 16, true);
+    if((temp.size() > 9)&&((quint8)temp.data()[5] != 0x00))
+    {
+        return 0;
+    }
+    else if((temp.size() == 11))
+    {
+        return 1;
+    }
+    else//ic卡连接错误
+    {
+        emit TicketDebug("SmMifiRest fail");
+        return 2;
+    }
+}
+
+void RfidThread::ToFormTicket(QByteArray d, bool flag,quint8 type)
+{
+    UserEvent *ue = new UserEvent(CR::RfidTicket,this);
+    ue->byteArray = d;
+    ue->flag = flag;
+    ue->type = type;
+    qApp->postEvent(fm,ue);
+}
+
+void RfidThread::OUT_IN(quint8 type)
+{
+    char buf[2][4]={
+        {0xD0,0x01,0x01,0xD0},{0xD1,0x01,0x01,0xD1}};
+    QByteArray writedata = QByteArray::fromRawData(buf[type],4) ;
+    SendBuf("OUT_IN", writedata);
+}
+bool RfidThread::event(QEvent *event)
+{
+    if(event->type() == QEvent::User)
+    {
+        UserEvent * ue = static_cast<UserEvent *>(event);
+        switch(ue->userType)
+        {
+            case CR::RFIDIN:
+                OUT_IN(ue->type);
+                break;
+            default:
+                return false;
+        }
+    }
+    else
+    {
+        return QThread::event(event);
+    }
+    return true;
+}

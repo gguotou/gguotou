@@ -1,0 +1,790 @@
+#ifndef FORM_H
+#define FORM_H
+#include <QWidget>
+#include <QDebug>
+#include <QImage>
+#include <QPixmap>
+#include <QTimer>
+#include <QPainter>
+#include <QFile>
+#include <QSettings>
+#include <QTextStream>
+#include <QProcess>
+#include <QWSServer>
+#include <QFont>
+
+#include <qtranslator.h>
+#include "TAesClass.h"
+#include "config.h"
+#include "dataprocess.h"
+#include "protocol.h"
+#include "userevent.h"
+
+#include "ui_form.h"
+#include "debugform.h"
+
+#include "tcpclientthread.h"
+#include "mytcpserver.h"
+#include "myclientsocket.h"
+
+#include "logfileprocess.h"
+#include "netlinkstatus.h"
+#include "udpthread.h"
+#include "ftp.h"
+#include "filegpio.h"
+#include "feedback.h"
+#include "sdreboot.h"
+#include "barcode.h"
+#include "rfidthread.h"
+#include "serialfinger.h"
+#include "leddisplay.h"
+#include "swinggate.h"
+#include "canbusthread.h"
+
+#include "sqltable.h"
+#include "ledstate.h"
+#if ARM_LINUX
+#include "SoundDevice.h"
+#include "videodevice.h"
+#endif
+#include "websocketserver.h"
+
+#include "usbfinger.h"
+#include "facedetect.h"
+#include <QMovie>
+
+#include <cv.h>
+#include <highgui.h>
+
+#ifndef PROPERTY
+#define PROPERTY
+#define image_width         640     //图片显示宽度
+#define image_height        480     //图片显示高度
+#define image_Format        QImage::Format_RGB888   //图片显示格式
+#define cameraDevice        "/dev/video2"           //摄像头设备
+#define haarXML             "./data/haarcascade_frontalface_alt2.xml"   //人脸模型级联分类器文件
+#define imgSizeScaleSmall   0.5     //图像放缩比例
+#define imgSizeScaleBig     2       //图像放缩比例
+#endif  //PROPERTY
+
+struct TTLVEntity
+{
+    QByteArray  Tag;                   //标记
+    QByteArray  Len;                   //数据长度
+    QByteArray  Value;                 //数据
+    quint32     TagSize;                    //标记占用字节数
+    quint32     LenSize;                    //数据长度占用字节数
+    quint32     ValueSize;                  //值长度
+};
+typedef TTLVEntity* PTLVEntity;
+
+namespace Ui {
+    class Form;
+}
+
+class Form : public QWidget
+{
+    Q_OBJECT
+
+public:
+    explicit Form(QWidget *parent = 0);
+    ~Form();
+private:
+//facedetect-------------------------------------------------------------------
+    CvMemStorage *storage;
+    QString cascadeFile;
+    CvHaarClassifierCascade *cascade;
+    int m_FaceCount;
+
+    void DetectFaceinit();
+    IplImage *QImageToIplImage(const QImage * qImage);
+    QImage IplImageToQImage(IplImage *iplImg);
+    void DetectAndDraw(IplImage *img);
+
+    bool detectFlag;
+    bool okflag;
+    CvPoint P1, P2;
+//baiduface-----------------------------------------
+private:
+    FaceDetect *faceDetect;
+    QByteArray ticketInfo;
+    QString ticketInfostr,ticketInfoBase64;//信息--base64加密--百度人脸返回
+    QString ticketOrder,ticketOrderBase64;//订单信息--base64加密--发给百度人脸
+    QTimer *faceTimer;
+    bool FaceTimerOutflag;
+    quint8 FaceInNum;//录入人脸数
+    quint8 FaceMatchNum;//比对人脸数
+    quint8 FaceErrTimes;//错误次数
+    quint8 FaceTicket_Err;
+    bool FaceDeviceErrFlag;
+    bool faceenable;
+    QByteArray ticketNo;
+    quint8 ticketNoLen,ticketNoNum;
+    quint8 ticketSource;//票来源   0x01:线下订单，0x02：线上订单 ，0x03：其他-比如人脸
+    QList<QByteArray> ticketArray;
+
+    void FaceDetectInit();
+    void FaceProcess();
+    void sendtoface(quint8);
+    bool sendtofaceflag;//1-有数据发送  0-没有
+    void SendToFaceConfirm(quint8);
+    void SendToFaceConfirm2(quint8);
+private slots:
+    void FaceTimerOut();
+//qt---------------------------------------------------------------------------
+private:
+    Ui::Form *ui;
+    QPixmap topbackgroundPix;
+    QImage backgroundImage;
+    QPixmap backgroundPix;
+    QPixmap bottombackgroundPix;
+    QPixmap thbackgroundPix;
+
+    int setStyleSheetTopBottom;
+    int setStyleSheetStandby;
+
+    quint16 uiWidth;
+    quint16 uiHeiht;
+    quint8 P04_DisplayType;//显示屏：1、单行LED；2、双行LED；3、5.7寸LCD；4、7寸LCD
+    quint8 language;
+    QTranslator appTranslator;
+    QFont font;
+    double fontScale;
+    QMovie *checkingMovie;
+    QMovie *fingerMovie;
+    QMovie *checkokMovie;
+    QMovie *faceMovie;
+    bool movieFlag;
+
+    int secondbuf;
+    bool tempOverFlagBuf;
+    bool humOverFlagBuf;
+
+    enum TicketNoType
+    {
+        barcodetype,
+        ictype,
+        idtype
+    };
+
+    enum Interfacestatus
+    {
+        check,
+        netmsg,
+        standby
+    };
+    Interfacestatus ifSt;
+
+    enum EquipmentType
+    {
+        net,
+        finger,
+        gate,
+        rfid,
+        barcode,
+        all
+    };
+
+    enum EquipmentStatus
+    {
+        init,
+        linkok,
+        linkerr,
+        use,
+        notuse
+    };
+
+    enum CheckStatus
+    {
+        soq,
+        eoq,
+        checkok,
+        checkerr,
+        picdis,
+        fingercheck,
+        fingerdis,
+        idpicdis,
+        facescan
+    };
+
+    enum TicketTime
+    {
+        ttUnused,
+        ttUsed,
+        ttExpired,
+        ttNotactive,
+        ttRefunded,
+        ttChangedticket,
+        ttReportedloss,
+        ttNowtime
+    };
+
+    enum Ticketstatus
+    {
+        communicationerrorcrc,
+        communicationerrormd5,
+        communicationerrorcid,
+        communicationerrorats,
+        communicationerrorprotocolnotsupport,
+        communicationerrortlv,
+        checkticket,
+        checknetwork,
+        networkblocked,
+        networkdelay,
+        serverconnectionerror,
+        pleasewait,
+        pleaseswipingagain,
+
+        opentheftpserver,
+        ftpstopcheckticket,
+        ftpconnectok,
+        ftpputerror,
+        ftpgeterror,
+        //票状态
+        swipesuccessful,
+        alreadyuse,
+        invalidticket,
+        invalidcard,
+        expired,
+        noteffective,
+        insufficientbalance,
+        blacklist,
+        refundticket,
+        changedticket,
+        reportedloss,
+        notimes,
+        //finger
+        inputfingerprint,
+        inputfingerprintagain,
+        recordedsuccessfully,
+        recordedtimeout,
+        recordedfailure,
+        matchfingerprint,
+        matchsuccessfully,
+        matchtimeout,
+        matchfailure,
+        fingerprintdevicenotdetected,
+        fingerprintnotenabled,
+        pleaseremoveyourfinger,
+
+        brushid,
+        idmatchfailure,
+
+        brushtheauthorizationcard,
+        authorizationsuccessfully,
+        authorizationfailure,
+
+        pleasebindthephoto,
+
+        suspendmode,
+        positivepassage,
+        reversepassage,
+        shururenshu,
+        errtype,
+
+        pleasepasstheticket,
+        ticketpernumerr,
+
+        pleaseinputface,
+        facerecordedsuccessfully,
+        facerecordedfailure,
+        pleasematchface,
+        facematchsuccessfully,
+        facematchfailure,
+        facerecordedalready,
+
+        facerecordedtimeout,
+        facematchtimeout,
+        facedeviceerr,
+        facedeviceok,
+        faceticketnotmatch,
+        facestatusdisplay,
+
+
+       end
+    };
+
+    QString gateStr;
+    bool systemStartFlag;
+    bool picDisFlag;
+    bool fingerDisFlag;
+    QString ticketClassStr;
+    QString ticketTypeStr;
+    QString ticketkindStr;
+    QString ticketStateStr;
+
+    QSettings *qs;
+    QSettings *qguoren;
+    QSettings *qpassnum;
+    QPalette pa;
+    QTextCodec *codec;
+    bool event(QEvent *);
+    void uiTimeSet(QByteArray);
+
+    void GateLableInit();
+
+    DebugForm *debugForm;
+    void DebugInit();
+    void TicketDebugLogSend();
+
+    void VersionCodeInit();
+    QByteArray StandardVersion;
+
+    QColor UihueJudge(QImage image, bool lightOrDarkColor);
+    bool UiBackGroundImageLightDarkColorJudge(QImage *image);
+    void UiLabelLightDarkColorJudge(QLabel *label, int offsetX, int offsetY, QString str);
+    void UiLanguageSwitch();
+    void UiInit();
+    void UiPartAndGateUpdate(QByteArray t);
+    void UiTimeUpdate(int second);
+    void UiVerIpUpdate();
+    void UiPeripheralState(EquipmentType et, EquipmentStatus es);
+    void UiTempHumIconUpdate(int second);
+    void UiTempHumUpdate(int temph, int templ, int humh, int huml);
+    void UiTempHumState(EquipmentStatus es);
+    void UiChange(Interfacestatus Is);
+    void UiCheckTicketMsg(QColor color, QString str);
+    QString UiGetCheckTicketMsg();
+    void UiFtpInit(bool enable);
+    void UiInputBarcodeFromKey(QString str);
+    void UiTicketPerNumUpdate(quint16 ticketPerNum);
+    void UiPassPerNumUpdate(quint16 passPerNum);
+    void UiTodayPerNumUpdate(quint16 todayPerNum);
+    void UiParkPerNumUpdate(quint16 parkPerNum);
+    void UiTicketNumDispaly(TicketNoType disType, QString str);
+    QString UiNameQByteArrayToQstring(QByteArray array);
+    void UiTicketTypeDisplay(QByteArray);
+    void UiTicketTypeDisplayString(QString);
+    void UiTicketTimeDisplay(QByteArray,TicketTime);
+    void UiPicDisplay(CheckStatus status);
+    void UiTicketstatusDisplay(Ticketstatus);
+private slots:
+    void paintEvent(QPaintEvent *);
+    void TicketDebug(QString);
+//sys--------------------------------------------------------------------------
+private:
+    void AesInit();
+//ticket-----------------------------------------------------------------------
+private:
+    LedState *ledState;
+    quint8 P02_DebugEnable;//调试模式：0、关闭调试信息；1、打开调试信息；2、上传调试信息；3、调试信息屏显
+    bool P20_CheckTicketMode;//检票模式：0、常规模式；1、特殊模式
+    bool P21_GroupInsertEnable;//插票模式：0、禁止；1、允许
+    QByteArray P22_PartNoGuid;
+    quint8 P22_PartNo;
+    quint8 P23_GateNo;
+    QByteArray P08_ClientNo;
+    QByteArray P24_CheckTicketType;
+    quint8 P29_ShowTime;//超时退票时间
+    quint16 P2b_CheckTicketGapTime;//检票间隔时间
+    quint32 standbyTime;
+    bool checkTicketState;
+    quint16 passPerNum;
+    quint16 passPerNumOld;
+    quint16 ticketPerNum;
+    quint16 ticketPerNumTemp;
+    quint8 ticketState;
+    QByteArray ticketId;
+    quint8 ticketSoundAddr;
+    quint8 ticketStyle;
+    quint8 ticketT;
+    quint8 ticketIcType;
+    QByteArray ticketExtend;
+    quint16 shengYuCiShu;
+    bool perAddFlag;
+
+    quint8 hundred,decade,unit;
+
+    bool ticketTflag;
+    bool passtimeroutflag;
+    QTimer *passtimer;
+
+    QTimer *ticketTimer;
+
+    QByteArray ticketData;
+    QByteArray ticketDataback;
+    QByteArray ticketDataAuthorizeback;
+    QByteArray checkCmdBuf;
+
+    bool ticketGetIdNumFlag;
+    bool ticketAuthorizeFlag;
+    quint8 ticketAuthorizeType;
+
+    void TicketInit();
+    void TicketFlagValue(bool);
+    void TicketTimerRe();
+    void TicketVerdictDisplay(quint8);
+    void TicketPerDisplay(quint16,bool);
+
+    QByteArray Decrypt(QByteArray sdata,quint32 key);
+    quint8 gettime(QByteArray sdata);
+private slots:
+    void TicketTimerOut();
+    void PASSTimerOut();
+    void VDDTimerOut();
+//gate-------------------------------------------------------------------------
+private:
+    FileGpio *fileGpio;
+    FeedBack *feedBack;
+    QTimer *gateTimer;
+    QTimer *VDDTimer;
+
+    enum DoorCtrl
+    {
+        opendoor,
+        closedoor
+    };
+    enum WhichDoor
+    {
+        door1,
+        door2,
+        doortwo
+    };
+    enum PRdirection
+    {
+        positive,
+        reverse
+    };
+
+    void PerBack();
+    quint8 P05_GateMode;//有闸无闸应用模式：0、有闸单向模式；1、正向自由模式；2、有闸双向模式；3、反向自由模式；4、有闸暂停模式
+    quint8 P06_GateType;//闸机类型：1、三棍闸；2、摆闸；3、翼闸
+    quint8 P07_GateComType;
+    void GateInit();
+    SwingGate *swingGate;
+    quint16 swingGatePer;
+    void SwingGateSetper(quint16);
+    void SwingGateBack(QByteArray);
+    void SwingGateSetType(quint8);
+    void prepare_ipdata_SwingGatePer(quint16 swingGatePer, PRdirection prd);
+    void DoorControl(DoorCtrl dc, WhichDoor wd);
+private slots:
+    void GateTimerOut();
+//tcp--------------------------------------------------------------------------
+private:
+    TcpClientThread *tcpClientThread;
+    bool tcpConnectFlag;
+    bool netLinkState;      //网络连接状态，0：网络断开、1：网络连接
+    bool socketLinkState;   //socket链接状态，0：不存在链接、1：存在链接
+    quint8 P2a_CheckNetTime;
+    QString P30_Mac;
+    QString P40_HostIp;
+    QString P48_GetwayIp;
+    QString P50_ServerIp;
+    quint16 P54_ServerPort;
+    quint8  P56_ReServerEnable;
+    QString P57_ReServerIp;
+    quint16 P5b_ReServerPort;
+    QString P5d_HttpPort;
+    bool backupServerFlag;
+    QString serverIp;
+
+    QTimer *ipDisTimer;
+    quint8 ipDisFlag;
+
+    QTimer *tcpHeartTimer;
+    QTimer *tcpRecTimer;
+    QTimer *tcpConnectTimer;
+    QTimer *tcpResponseTimer;
+    quint8 tcpSendCmdHead;
+    quint8 tcpSendCmdType;
+    QByteArray tcpSendByteArray;
+    bool tcpReadBackFlag;
+    quint8 tcpHeadBackup;
+
+    void TcpInit();
+    void TcpConnect();
+    void TcpDisConnect();
+    void TcpReadCmd(QByteArray);
+    void TcpSendCmd(quint8, quint8, QByteArray);
+
+    NetlinkStatus *netlinkstatus;
+private slots:
+    void TcpHeart();
+    void TcpRecTimeOut();
+    void TcpConnectTimerOut();
+    void TcpResponseTimerOut();
+    void IPdisTimerOut();
+//tcp server-------------------------------------------------------------------
+private:
+    QTimer *liveTimer;
+    myTcpServer *mytcpServer;
+    typedef QMap <int, QString> ClientMap;
+    ClientMap clientMap;
+    void TcpServerInit();
+private slots:
+    void ClientReadData(int clientID,QString IP,int Port,QByteArray cmd);
+    void ClientConnect(int clientID,QString IP,int Port);
+    void ClientDisConnect(int clientID,QString IP,int Port);
+    void LiveTimerOut();
+//SQLITE-----------------------------------------------------------------------
+private:
+    SqlTable *sqlTable;
+    quint8 sqlReadStep;
+    void SqlTableInit();
+//canbus-----------------------------------------------------------------------
+private:
+    CanBusThread *canBusThread;
+    void CanBusInit();
+//ftp---------------------------------------------------------------------
+private:
+    bool Ftp_Enable;
+    bool FTPflag;
+    Ftp *ftp;
+    QString Ftp_ServerIp;
+    quint16 Ftp_Port;
+    void FtpInit();
+    QTimer *ftpdisoffTimer;
+    QString ftpgatelabel;
+    QColor msgcolor;
+    QColor ftpgatelabelcolor;
+ private slots:
+    void ftpdisoffTimerOut();
+//udp--------------------------------------------------------------------------
+private:
+    quint8 p22PartNoGuidLen;
+    UdpThread *udpThread;
+    void UdpInit();
+    void UdpSaveQs(QByteArray);
+    void UdpInitQs();
+    void UserconfToSql();
+    void UserconfSqlSync();
+//pic--------------------------------------------------------------------------
+private:
+    quint8 photographEnable;
+    quint8 picDownTimes;
+    QByteArray picDownData;
+    QTimer *videoTimer;
+    void VideoInit();
+#if PROTOCOLVER == NEWPROTOCOL
+    void TicketPicDisplay(quint8 total, quint8 curr, QByteArray pic);
+#else
+    void TicketPicDisplay(QByteArray pic);
+#endif
+    void prepare_ipdata_downpic(quint8);
+
+    VideoDevice *videoDevice;
+    QImage *frame;
+    QPixmap pixPic;
+    uchar *pp;
+    bool camerRunFlag;
+
+    void getPic();
+    void prepare_ipdata_sendjpg();
+
+    QTimer *picDisTimer;
+    quint8 P28_ImageDisGapTime;
+private slots:
+    void PicDisTimerOut();
+//sound------------------------------------------------------------------------
+private:
+    quint8 soundType;
+    QTimer *soundTimer;
+    QSound *sound;
+    qint8 soundValue;
+
+    void SoundInit();
+    void PlayWav(quint16, quint16);
+
+#if ARM_LINUX
+    SoundDevice *soundDevice;
+    QProcess* process;
+    bool NewPlayFlag;
+    int playingFlag;
+    QString soundName;
+    QStringList soundNameList;
+#endif
+
+private slots:
+    void SoundTimerOut();
+private slots:
+    void redFromStdOut();
+    void redFromStdErr();
+    void processStateChanged(QProcess::ProcessState state);
+    void processError(QProcess::ProcessError error);
+    void processFinished(int exitCode,QProcess::ExitStatus exitStatus);
+//barcode----------------------------------------------------------------------
+private:
+    BarCode *barCode;
+    quint8 P91_BarcodeDevType;//条码读写设备：0、矽感
+    quint8 P92_BarcodeTicketType;//条码票应用模式：0、普通检票；1、捆绑指纹；2、捆绑图像；3、综合应用
+    quint8 P93_BarcodeBaud;//条码读写设备波特率：0、4800；1、9600；2、38400；3、57600；4、115200
+    quint8 P94_BarcodeHead;//同步头
+    quint8 P95_BarcodeEndLen;//结束位长度
+    QByteArray P96_BarcodeEndData;//结束位
+    QByteArray fetchCmdSign;
+    QByteArray barCodeData;
+
+    void BarcodeInit();
+    void BarCodeRead(QByteArray);
+    void prepare_ipdata_barticket();
+    void prepare_ipdata_barfingersend();
+    void prepare_ipdata_barconfirm();
+    void prepare_ipdata_barconfirm_groupinsert();
+    void prepare_ipdata_barFetchCmdSign();
+    void HsSaveTicketNum(quint16 num, quint8 type);
+    void HsSavePassNum(quint16 num, quint8 type);
+private:
+    QTimer *barTimer;
+    QByteArray oldBarData;
+private slots:
+    void BARTimerOut();
+//rfid-------------------------------------------------------------------------
+private:
+    RfidThread *rfidThread;
+    quint8 P71_RfidDevType;//读写器设备：0、RC500（sendinfo）；1、CPU卡读写器；2、华视二代证；3、智博二合一；
+                            //4、新中新二合一；5、RC500+简易回收装置；6、RC500+回收卡装置；7、新中新二代证；8、精伦M1读卡器
+    quint8 P72_RfidTicketType;//IC卡应用模式：0、普通检票；1、捆绑指纹；2、捆绑图像；3、综合应用
+    quint8 P75_IdCardType;//二代证应用模式：0、普通检票；1、捆绑指纹；2、捆绑图像；3、综合应用
+
+    QByteArray serialNumber;
+    QByteArray userNumber;
+    QByteArray idCard,idName,idPic;
+
+    QString idNamestr;
+
+    void RfidInit();
+    void RfidRead(QByteArray,bool,quint8);
+    void prepare_ipdata_icticket();
+    void prepare_ipdata_icfingersend();
+    void prepare_ipdata_icconfirm();
+
+    void prepare_ipdata_idticket();
+    void prepare_ipdata_idfingersend();
+    void prepare_ipdata_idconfirm();
+private:
+    QTimer *cardTimer;
+    QByteArray oldCardRead;
+private slots:
+    void CardTimerOut();
+//finger-----------------------------------------------------------------------
+private:
+    quint8 Pb1_FingerDevType;//指纹读写设备：0、wel（串口）；1、wel（usb）
+    quint8 Pb2_FingerInTimes;//指纹录入次数：只能1次或2次
+    quint8 Pb3_FingerInTime;//指纹录入超时次数：
+    quint8 Pb5_FingerMatchTime;//指纹比对超时次数：
+    SerialFinger *serialFinger;
+    quint8 fingerApplyingMode;//指纹应用模式：0、不要指纹；1、指纹录入；2、指纹比对
+    quint8 fingerStep;
+    quint8 picApplyingMode;//图像应用模式：0、正常检票；1、图像录入；2、图像显示
+    quint8 idApplyingMode;//二代证应用模式：0、正常检票；1、二代证绑定；2、二代证比对
+    QByteArray ticketIdNum;
+    QByteArray ticketIdNumRead;
+    bool fingerEnableFlag;
+
+    quint8 FingerInNum;//录入指纹数
+    quint8 FingerMatchNum;//比对指纹数
+    quint8 fingetGetFeatureCmd;
+    quint8 fingerGetTimes;
+    QByteArray fingerData;
+    quint8 fingerErrTimes;
+
+    QTimer *fingerStartTimer;
+
+    enum Fingerstatus
+    {
+        fingerluru,
+        fingerbidui,
+        fingerchangkai
+    };
+
+    void FingerInit();
+    void FingerFeature(quint8);
+    void FingerTemplate(Fingerstatus);
+    void FingerFeatureBack(bool);
+    void FingerTemplateBack(bool,QByteArray);
+    void prepare_ipdata_fingersend();
+
+private slots:
+    void fingerStartTimerOut();
+
+//usbfinger--------------------------------------------------------------------
+private:
+    UsbFinger *usbFinger;
+
+    void USBFingerFeatureBack(bool);
+    void USBFingerTemplateBack(bool,QByteArray);
+    void USBFingerFeature();
+    void USBFingerTemplate();
+    void USBFingerTemplate_direct();
+//websocketserver--------------------------------------------------------------
+private:
+    quint8 humH;
+    quint8 humL;
+    quint8 tempH;
+    quint8 tempL;
+
+    quint8 humThreshold;
+    quint8 tempThreshold;
+    quint8 relay1;
+    quint8 relay2;
+
+    quint8 humThresholdBuf;
+    quint8 tempThresholdBuf;
+    bool setTempHumThreshold;
+
+    bool temphumEnableFlag;
+
+    WebSocketServer *websocketserver;
+    QTimer *websocketTimer;
+    QTimer *tempHumReadTimer;
+    void WebSocketServerInit();
+private slots:
+    void WebSocketTimerOut();
+    void TempHumReadTimerOut();
+//TLVProcess-------------------------------------------------------------------
+private:
+    QByteArray heartBufCID;
+    QByteArray bufCID;
+    QByteArray FirstLevelTLVBuf;   //存放第一级解析出的TLV值
+    QVector<TTLVEntity> ATLVEntityArray;
+
+    QMap<QString, QString> TagMap;
+
+    void TagMapInit();
+    QByteArray IntToByte(quint16 i);
+    quint16 BytesToInt(QByteArray bytes, quint8 err);
+    bool IsSingleStruct(quint8 AValue);
+    bool IsMultiTag(quint8 AValue);
+    bool HighBitIsOne(quint8 AValue);
+    //生成TLV Array
+    QString GenerateTLVEntityArray(QByteArray buf, quint32 BeginIndex, quint32 Len);
+    //清除TLV Array
+    void ClearTLVEntityArray();
+    //获取第一级TLV的值组合
+    void GetFirstLevelTLVBuf();
+    //获取TLVEntity数据值
+    QByteArray GetTLVEntityValue(QString ATag);
+    //组包TLVEntity
+    QByteArray PackTLVEntity(QString ATag, QByteArray Value);
+
+    void ExportTLVEntity2File();
+//other------------------------------------------------------------------------
+private:
+    void keyPressEvent(QKeyEvent *);
+    QByteArray keyInputStr;
+
+    QString keyInputStr2;
+
+    quint16 bgtimes;
+    QDate beginTime;
+    QDate endTime;
+    quint8 userTimeOutType;
+
+    SDReboot *sdReboot;
+
+    TAesClass *aes;
+//leddisplay-------------------------------------------------------------------
+private:
+    LedDis *ledDis;
+    void LedInit();
+    void LedDisplay(quint8 ledCmd,quint8 length,quint8 identify, quint16 perNum);
+//logfileprocess-------------------------------------------------------------------
+private:
+    LogFile *logfile;
+    void LogFileInit();
+private:
+    void ResetTtyusb();
+};
+
+#endif // FORM_H

@@ -1,0 +1,51 @@
+#ifndef SQLTABLE_H
+#define SQLTABLE_H
+
+#include <QtGui>
+#include <QWidget>
+#include <QtSql>
+#include <QMessageBox>
+#include <QSqlDatabase>
+#include <QSqlError>
+#include <QSqlQuery>
+#include <QDebug>
+#include <QProcess>
+#include <QTimer>
+#include "config.h"
+#include "protocol.h"
+#include "userevent.h"
+#include "dataprocess.h"
+#include "ui_sqltable.h"
+
+namespace Ui {
+    class SqlTable;
+}
+
+class SqlTable : public QWidget
+{
+    Q_OBJECT
+
+public:
+    explicit SqlTable(QWidget *parent = 0);
+    ~SqlTable();
+
+    void SqlInit();
+    bool IsColumnExist(QSqlQuery db, QString tableName, QMap<QString, QString> fieldMap);
+
+    bool InsertCheckTicket(QString tableName, QMap<QString, QString> fieldMap);
+    bool UpdateCheckTicketFlag(QString tableName, QMap<QString, QString> upFieldMap, QMap<QString, QString> whereFieldMap);
+    int NoUpCountCheckTicket(QString tableName);
+    QByteArray ReadCheckTicket(QString tableName);
+
+    void UsrConfSqlInit();
+    void SqlToUserconf();
+    void UserconfToSql(QString name, QString data);
+    QDateTime SqlUserconfTimeRead();
+private:
+    Ui::SqlTable *ui;
+    QSettings *qs;
+    QSqlQuery sendinfoQuery;
+    QSqlQuery usrConfQuery;
+};
+
+#endif // SQLTABLE_H

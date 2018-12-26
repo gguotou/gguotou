@@ -1,0 +1,89 @@
+#ifndef FTP_H
+#define FTP_H
+
+#include <QFtp>
+#include <QHash>
+#include <QUrl>
+#include <QTimer>
+#include <QApplication>
+#include <QThread>
+#include <QUrlInfo>
+#include <QDir>
+#include <QFile>
+#include <QProcess>
+
+#include "protocol.h"
+#include "userevent.h"
+#include "dataprocess.h"
+
+#include "config.h"
+
+#define FTPOK               0x00
+#define FTPSTOP             0x01
+#define CONNECTTOHOSTERR    0x02
+#define LOGINERR            0x03
+#define SETTRANSFERMODEERR  0x04
+#define CDERR               0x05
+#define MKDIRERR            0x06
+#define PUTERR              0x07
+#define GETERR              0x08
+#define CLOSEERR            0x09
+
+#define PICDAT              0x0a
+
+#define FTPTIMEOUT          30000
+#define FTPMAXCNT           100
+#define FTPTEMPMAXCNT       10000
+class Ftp  : public QThread
+{
+    Q_OBJECT
+public:
+    Ftp(QObject * parent = 0);
+    QString hostip;
+    quint16 ftpport;
+    QObject * fm;
+private:
+    QTimer *timer;
+    QTimer *FtpOperatimer;
+
+    QFtp *ftpobj;
+
+    QFileInfo upFileInfo;
+    QFileInfoList flielist;
+
+    QString fileName;
+    QString filePath;
+    QString cdPath;
+
+    QDir putDir;
+    QDir getDir;
+    QDir tempDir;
+
+    bool ftpOk;
+    bool ftpStartFlag;
+    bool ftpStopFlag;
+    bool cdFlieFlag;
+    bool putFlieFlag;
+    bool getFileFlag;
+    bool putOrGetFlag;//1:get 0:put
+
+    void ConnectOrDisconnect();
+    void PutFile(QString fileName, QString path);
+    void GetFile(QString fileName, QString path);
+    void RmFile(QString fileName, QString path);
+
+    void ToFormFtp(QByteArray d, QString fileName, quint8 ftpstate);
+    bool event(QEvent *);
+    void run();
+
+signals:
+    void TicketDebug(QString);
+
+private slots:
+    void FtpCmdStarted(int);
+    void FtpCmdFinished(int, bool error);
+    void FtpReadFile(void);
+    void FtpOpera(void);
+};
+
+#endif // FTP_H

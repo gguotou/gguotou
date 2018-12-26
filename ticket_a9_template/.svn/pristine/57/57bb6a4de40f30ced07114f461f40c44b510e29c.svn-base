@@ -1,0 +1,165 @@
+#ifndef RFIDTHREAD_H
+#define RFIDTHREAD_H
+
+#include <QThread>
+#include <QApplication>
+#include <QTimer>
+#include <QString>
+#include <QDebug>
+#include "config.h"
+
+#include "posix_qextserialport.h"
+#include "userevent.h"
+#include "dataprocess.h"
+
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
+#if HARDWAREVER != SDE_GA502_1_3 && HARDWAREVER != SDE_GA503_1_0
+#include "hidapi.h"
+#include "libwlt.h"
+#endif
+
+
+//USB
+#define MAX_PACKAGE_SIZE        64
+
+class RfidThread : public QThread
+{
+    Q_OBJECT
+public:
+    explicit RfidThread(QObject *parent = 0);
+    QByteArray passWord;
+    quint8 devType;
+    quint8 idCardEnable;
+    void CloseCom();
+    void QuitFlag();
+private:
+    int fp;
+    bool comOpenErr;
+    void SendBuf(QString target, QByteArray buf, bool dis=false);
+    bool quit_rfid_flag;
+
+    bool IsComOnboardFlag;
+    quint16 readComDelayTime;
+
+    quint8 rfidflag;
+
+    quint8 icType;
+    bool findType;
+    quint8 icOutTimes;
+    quint8 idOutTimes;
+
+    QByteArray cardSnr;
+    QByteArray snrRead;
+
+    QByteArray ticketBuf;
+    quint8 ticketType;
+
+    QObject *fm;
+    Posix_QextSerialPort *myCom;
+    QSettings *qs;
+    QByteArray idData;
+
+    bool ICOKFlag;
+
+    void run();
+
+    bool event(QEvent *);
+
+    QByteArray ReadMyCom(int timems);
+    QByteArray ReadMyCom2(int timems);
+
+    quint8 HSGetIcType();
+    quint8 HSLoadkey(QByteArray);
+    quint8 HSVerifyKey(QByteArray,quint8);
+    quint8 HSReadIcData(quint8,quint8);
+
+    quint8 HSGetIdType();
+    quint8 HSSelectID();
+    quint8 HSReadIdData();
+
+    quint8 Rc500GetType();
+    quint8 Rc500GetSnr();
+    quint8 Rc500LoadKey(QByteArray,quint8);
+    quint8 Rc500ReadBlock(QByteArray,quint8);
+
+    void Rc500Beep();
+    void Rc500Halt();
+
+    quint8 XZXReadID0();
+    quint8 XZXReadID1();
+    quint8 XZXReadID2();
+    quint8 XZXReadID3();
+
+    quint8 XZXGetSnr(void);
+    quint8 XZXHalt(void);
+    quint8 XZXbeep(void);
+
+    quint8 XZXLoadKey(QByteArray,quint8);
+    quint8 XZXYZKey(QByteArray,quint8);
+    quint8 XZXYZReadBlock(quint8);
+
+    quint8 JingLunM1GetType();
+    quint8 JingLunM1GetSnr();
+    quint8 JingLunM1ReadBlock(QByteArray snr, quint8 block);
+
+    quint8 WELLGetType(void);
+    quint8 WELLGetSnr(void);
+    quint8 WELLLoadKey(QByteArray snr, quint8 fan);
+    quint8 WELLReadBlock(quint16 block);
+
+    enum CardType
+    {
+        TypeA,
+        TypeB
+    };
+
+#if HARDWAREVER != SDE_GA502_1_3 && HARDWAREVER != SDE_GA503_1_0
+    hid_device *device;
+#endif
+
+    bool wellUsbOk;
+
+    int WELLUSBInit(void);
+    int WELLUSBOpen(unsigned short vendor_id, unsigned short product_id);
+    int WELLUSBWrite(const unsigned char *buf, unsigned int count);
+    int WELLUSBRead(unsigned char *buf, unsigned int count);
+    int WELLUSBFirmwareVersion();
+    void WELLUSBBeepControl(bool Beepswitch);
+
+    int WELLUSBFindCard(CardType type);
+    int WELLUSBSelectCard(CardType type);
+    int WELLUSBReadUID(CardType type);
+    bool WELLUSBKeyAuth(QByteArray snr, quint8 block);
+    bool WELLUSBReadBlock( quint8 block);
+
+    int WELLUSBFindID();
+    int WELLUSBSelectID();
+    int WELLUSBReadID();
+
+    quint8 SmReadblock(QByteArray snr, quint8 fan, quint8 block, quint8 n);
+    quint8 SmHalt();
+
+    quint8 SmRest();
+    void RestPSAM(void);
+    quint8 SmGetSnr();
+    quint8 SmMifiRest();
+
+    void ToFormTicket(QByteArray,bool,quint8);
+
+    void OUT_IN(quint8 type);
+
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // RFIDTHREAD_H

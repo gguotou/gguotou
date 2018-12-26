@@ -1,0 +1,858 @@
+#include "sqltable.h"
+
+SqlTable::SqlTable(QWidget *parent) :
+    QWidget(parent),
+    ui(new Ui::SqlTable)
+{
+    qs = new QSettings(QS_FILEPATH, QSettings::IniFormat);
+}
+
+SqlTable::~SqlTable()
+{
+    delete ui;
+}
+
+void SqlTable::SqlInit()
+{
+    QSqlDatabase qdb;
+    if(QSqlDatabase::contains("qt_sql_default_connection"))
+        qdb = QSqlDatabase::database("qt_sql_default_connection");
+    else
+        qdb = QSqlDatabase::addDatabase("QSQLITE");// 没指定连接名字，则为默认库
+    qdb.setDatabaseName("/opt/config/sendinfo.db");
+    if (!qdb.open())
+    {
+        qDebug()<< "open /opt/config/sendinfo.db err!";
+        return;
+    }
+    sendinfoQuery = QSqlQuery(qdb);
+
+    QString sqlStr;
+    QMap<QString, QString> fieldMap;
+
+    if(!sendinfoQuery.exec("select count(*) from querybarticket"))
+    {
+        qDebug()<< sendinfoQuery.lastError().text();
+
+        sqlStr = "create table querybarticket(";
+        sqlStr += "id integer primary key autoincrement,";
+        sqlStr += "cid varchar(20),";
+        sqlStr += "barcode varchar(40),";
+        sqlStr += "serverip varchar(16),";
+        sqlStr += "createtime timestamp,";
+        sqlStr += "modifiedtime timestamp,";
+        sqlStr += "upflag int,";
+        sqlStr += "tickettype varchar(40),";
+        sqlStr += "ticketstate varchar(40)";
+        sqlStr += ")";
+        if(!sendinfoQuery.exec(sqlStr))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        else
+        {
+            fieldMap.clear();
+            fieldMap.insert("id", "integer primary key autoincrement");
+            fieldMap.insert("cid", "varchar(20)");
+            fieldMap.insert("barcode", "varchar(40)");
+            fieldMap.insert("serverip", "varchar(16)");
+            fieldMap.insert("createtime", "timestamp");
+            fieldMap.insert("modifiedtime", "timestamp");
+            fieldMap.insert("upflag", "int");
+            fieldMap.insert("tickettype", "varchar(40)");
+            fieldMap.insert("ticketstate", "varchar(40)");
+            IsColumnExist(sendinfoQuery, "querybarticket", fieldMap);
+
+            if(!sendinfoQuery.exec("create index if not exists querybarticket_idx1 on querybarticket (cid, barcode)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+            if(!sendinfoQuery.exec("create index if not exists querybarticket_idx2 on querybarticket (createtime)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+        }
+    }
+    else
+    {
+        fieldMap.clear();
+        fieldMap.insert("id", "integer primary key autoincrement");
+        fieldMap.insert("cid", "varchar(20)");
+        fieldMap.insert("barcode", "varchar(40)");
+        fieldMap.insert("serverip", "varchar(16)");
+        fieldMap.insert("createtime", "timestamp");
+        fieldMap.insert("modifiedtime", "timestamp");
+        fieldMap.insert("upflag", "int");
+        fieldMap.insert("tickettype", "varchar(40)");
+        fieldMap.insert("ticketstate", "varchar(40)");
+        IsColumnExist(sendinfoQuery, "querybarticket", fieldMap);
+
+        if(!sendinfoQuery.exec("create index if not exists querybarticket_idx1 on querybarticket (cid, barcode)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        if(!sendinfoQuery.exec("create index if not exists querybarticket_idx2 on querybarticket (createtime)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+    }
+    if(!sendinfoQuery.exec("select count(*) from confirmbarticket"))
+    {
+        qDebug()<< sendinfoQuery.lastError().text();
+
+        sqlStr = "create table confirmbarticket(";
+        sqlStr += "id integer primary key autoincrement,";
+        sqlStr += "cid varchar(20),";
+        sqlStr += "barcodebuf varchar(80),";
+        sqlStr += "barcode varchar(40),";
+        sqlStr += "serverip varchar(16),";
+        sqlStr += "createtime timestamp,";
+        sqlStr += "modifiedtime timestamp,";
+        sqlStr += "upflag int,";
+        sqlStr += "ticketclass varchar(40),";
+        sqlStr += "tickettype varchar(40),";
+        sqlStr += "ticketkind varchar(40),";
+        sqlStr += "checkcount int";
+        sqlStr += ")";
+        if(!sendinfoQuery.exec(sqlStr))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        else
+        {
+            fieldMap.clear();
+            fieldMap.insert("id", "integer primary key autoincrement");
+            fieldMap.insert("cid", "varchar(20)");
+            fieldMap.insert("barcodebuf", "varchar(80)");
+            fieldMap.insert("barcode", "varchar(40)");
+            fieldMap.insert("serverip", "varchar(16)");
+            fieldMap.insert("createtime", "timestamp");
+            fieldMap.insert("modifiedtime", "timestamp");
+            fieldMap.insert("upflag", "int");
+            fieldMap.insert("ticketclass", "varchar(40)");
+            fieldMap.insert("tickettype", "varchar(40)");
+            fieldMap.insert("ticketkind", "varchar(40)");
+            fieldMap.insert("checkcount", "int");
+            IsColumnExist(sendinfoQuery, "confirmbarticket", fieldMap);
+
+            if(!sendinfoQuery.exec("create index if not exists confirmbarticket_idx1 on confirmbarticket (createtime)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+            if(!sendinfoQuery.exec("create index if not exists confirmbarticket_idx2 on confirmbarticket (upflag)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+            if(!sendinfoQuery.exec("create index if not exists confirmbarticket_idx3 on confirmbarticket (cid, barcode)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+        }
+    }
+    else
+    {
+        fieldMap.clear();
+        fieldMap.insert("id", "integer primary key autoincrement");
+        fieldMap.insert("cid", "varchar(20)");
+        fieldMap.insert("barcodebuf", "varchar(80)");
+        fieldMap.insert("barcode", "varchar(40)");
+        fieldMap.insert("serverip", "varchar(16)");
+        fieldMap.insert("createtime", "timestamp");
+        fieldMap.insert("modifiedtime", "timestamp");
+        fieldMap.insert("upflag", "int");
+        fieldMap.insert("ticketclass", "varchar(40)");
+        fieldMap.insert("tickettype", "varchar(40)");
+        fieldMap.insert("ticketkind", "varchar(40)");
+        fieldMap.insert("checkcount", "int");
+        IsColumnExist(sendinfoQuery, "confirmbarticket", fieldMap);
+
+        if(!sendinfoQuery.exec("create index if not exists confirmbarticket_idx1 on confirmbarticket (createtime)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        if(!sendinfoQuery.exec("create index if not exists confirmbarticket_idx2 on confirmbarticket (upflag)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        if(!sendinfoQuery.exec("create index if not exists confirmbarticket_idx3 on confirmbarticket (cid, barcode)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+    }
+    if(!sendinfoQuery.exec("select count(*) from rollbackbarticket"))
+    {
+        qDebug()<< sendinfoQuery.lastError().text();
+
+        sqlStr = "create table rollbackbarticket(";
+        sqlStr += "id integer primary key autoincrement,";
+        sqlStr += "cid varchar(20),";
+        sqlStr += "barcodebuf varchar(80),";
+        sqlStr += "barcode varchar(40),";
+        sqlStr += "serverip varchar(16),";
+        sqlStr += "createtime timestamp,";
+        sqlStr += "modifiedtime timestamp,";
+        sqlStr += "upflag int";
+        sqlStr += ")";
+        if(!sendinfoQuery.exec(sqlStr))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        else
+        {
+            fieldMap.clear();
+            fieldMap.insert("id", "integer primary key autoincrement");
+            fieldMap.insert("cid", "varchar(20)");
+            fieldMap.insert("barcodebuf", "varchar(80)");
+            fieldMap.insert("barcode", "varchar(40)");
+            fieldMap.insert("serverip", "varchar(16)");
+            fieldMap.insert("createtime", "timestamp");
+            fieldMap.insert("modifiedtime", "timestamp");
+            fieldMap.insert("upflag", "int");
+            IsColumnExist(sendinfoQuery, "rollbackbarticket", fieldMap);
+
+            if(!sendinfoQuery.exec("create index if not exists rollbackbarticket_idx1 on rollbackbarticket (createtime)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+            if(!sendinfoQuery.exec("create index if not exists rollbackbarticket_idx2 on rollbackbarticket (upflag)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+            if(!sendinfoQuery.exec("create index if not exists rollbackbarticket_idx3 on rollbackbarticket (cid, barcode)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+        }
+    }
+    else
+    {
+        fieldMap.clear();
+        fieldMap.insert("id", "integer primary key autoincrement");
+        fieldMap.insert("cid", "varchar(20)");
+        fieldMap.insert("barcodebuf", "varchar(80)");
+        fieldMap.insert("barcode", "varchar(40)");
+        fieldMap.insert("serverip", "varchar(16)");
+        fieldMap.insert("createtime", "timestamp");
+        fieldMap.insert("modifiedtime", "timestamp");
+        fieldMap.insert("upflag", "int");
+        IsColumnExist(sendinfoQuery, "rollbackbarticket", fieldMap);
+
+        if(!sendinfoQuery.exec("create index if not exists rollbackbarticket_idx1 on rollbackbarticket (createtime)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        if(!sendinfoQuery.exec("create index if not exists rollbackbarticket_idx2 on rollbackbarticket (upflag)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        if(!sendinfoQuery.exec("create index if not exists rollbackbarticket_idx3 on rollbackbarticket (cid, barcode)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+    }
+    if(!sendinfoQuery.exec("select count(*) from queryicticket"))
+    {
+        qDebug()<< sendinfoQuery.lastError().text();
+
+        sqlStr = "create table queryicticket(";
+        sqlStr += "id integer primary key autoincrement,";
+        sqlStr += "cid varchar(20),";
+        sqlStr += "sn varchar(40),";
+        sqlStr += "un varchar(40),";
+        sqlStr += "serverip varchar(16),";
+        sqlStr += "createtime timestamp,";
+        sqlStr += "modifiedtime timestamp,";
+        sqlStr += "upflag int,";
+        sqlStr += "tickettype varchar(40),";
+        sqlStr += "ticketstate varchar(40)";
+        sqlStr += ")";
+        if(!sendinfoQuery.exec(sqlStr))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        else
+        {
+            fieldMap.clear();
+            fieldMap.insert("id", "integer primary key autoincrement");
+            fieldMap.insert("cid", "varchar(20)");
+            fieldMap.insert("sn", "varchar(40)");
+            fieldMap.insert("un", "varchar(40)");
+            fieldMap.insert("serverip", "varchar(16)");
+            fieldMap.insert("createtime", "timestamp");
+            fieldMap.insert("modifiedtime", "timestamp");
+            fieldMap.insert("upflag", "int");
+            fieldMap.insert("tickettype", "varchar(40)");
+            fieldMap.insert("ticketstate", "varchar(40)");
+            IsColumnExist(sendinfoQuery, "queryicticket", fieldMap);
+
+            if(!sendinfoQuery.exec("create index if not exists queryicticket_idx1 on queryicticket (cid, sn)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+            if(!sendinfoQuery.exec("create index if not exists queryicticket_idx2 on queryicticket (createtime)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+        }
+    }
+    else
+    {
+        fieldMap.clear();
+        fieldMap.insert("id", "integer primary key autoincrement");
+        fieldMap.insert("cid", "varchar(20)");
+        fieldMap.insert("sn", "varchar(40)");
+        fieldMap.insert("un", "varchar(40)");
+        fieldMap.insert("serverip", "varchar(16)");
+        fieldMap.insert("createtime", "timestamp");
+        fieldMap.insert("modifiedtime", "timestamp");
+        fieldMap.insert("upflag", "int");
+        fieldMap.insert("tickettype", "varchar(40)");
+        fieldMap.insert("ticketstate", "varchar(40)");
+        IsColumnExist(sendinfoQuery, "queryicticket", fieldMap);
+
+        if(!sendinfoQuery.exec("create index if not exists queryicticket_idx1 on queryicticket (cid, sn)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        if(!sendinfoQuery.exec("create index if not exists queryicticket_idx2 on queryicticket (createtime)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+    }
+    if(!sendinfoQuery.exec("select count(*) from confirmicticket"))
+    {
+        qDebug()<< sendinfoQuery.lastError().text();
+
+        sqlStr = "create table confirmicticket(";
+        sqlStr += "id integer primary key autoincrement,";
+        sqlStr += "cid varchar(20),";
+        sqlStr += "snbuf varchar(80),";
+        sqlStr += "sn varchar(40),";
+        sqlStr += "serverip varchar(16),";
+        sqlStr += "createtime timestamp,";
+        sqlStr += "modifiedtime timestamp,";
+        sqlStr += "upflag int,";
+        sqlStr += "ticketclass varchar(40),";
+        sqlStr += "tickettype varchar(40),";
+        sqlStr += "ticketkind varchar(40),";
+        sqlStr += "checkcount int";
+        sqlStr += ")";
+        if(!sendinfoQuery.exec(sqlStr))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        else
+        {
+            fieldMap.clear();
+            fieldMap.insert("id", "integer primary key autoincrement");
+            fieldMap.insert("cid", "varchar(20)");
+            fieldMap.insert("snbuf", "varchar(80)");
+            fieldMap.insert("sn", "varchar(40)");
+            fieldMap.insert("serverip", "varchar(16)");
+            fieldMap.insert("createtime", "timestamp");
+            fieldMap.insert("modifiedtime", "timestamp");
+            fieldMap.insert("upflag", "int");
+            fieldMap.insert("ticketclass", "varchar(40)");
+            fieldMap.insert("tickettype", "varchar(40)");
+            fieldMap.insert("ticketkind", "varchar(40)");
+            fieldMap.insert("checkcount", "int");
+            IsColumnExist(sendinfoQuery, "confirmicticket", fieldMap);
+
+            if(!sendinfoQuery.exec("create index if not exists confirmicticket_idx1 on confirmicticket (createtime)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+            if(!sendinfoQuery.exec("create index if not exists confirmicticket_idx2 on confirmicticket (upflag)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+            if(!sendinfoQuery.exec("create index if not exists confirmicticket_idx3 on confirmicticket (cid, sn)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+        }
+    }
+    else
+    {
+        fieldMap.clear();
+        fieldMap.insert("id", "integer primary key autoincrement");
+        fieldMap.insert("cid", "varchar(20)");
+        fieldMap.insert("snbuf", "varchar(80)");
+        fieldMap.insert("sn", "varchar(40)");
+        fieldMap.insert("serverip", "varchar(16)");
+        fieldMap.insert("createtime", "timestamp");
+        fieldMap.insert("modifiedtime", "timestamp");
+        fieldMap.insert("upflag", "int");
+        fieldMap.insert("ticketclass", "varchar(40)");
+        fieldMap.insert("tickettype", "varchar(40)");
+        fieldMap.insert("ticketkind", "varchar(40)");
+        fieldMap.insert("checkcount", "int");
+        IsColumnExist(sendinfoQuery, "confirmicticket", fieldMap);
+
+        if(!sendinfoQuery.exec("create index if not exists confirmicticket_idx1 on confirmicticket (createtime)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        if(!sendinfoQuery.exec("create index if not exists confirmicticket_idx2 on confirmicticket (upflag)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        if(!sendinfoQuery.exec("create index if not exists confirmicticket_idx3 on confirmicticket (cid, sn)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+    }
+    if(!sendinfoQuery.exec("select count(*) from queryidticket"))
+    {
+        qDebug()<< sendinfoQuery.lastError().text();
+
+        sqlStr = "create table queryidticket(";
+        sqlStr += "id integer primary key autoincrement,";
+        sqlStr += "cid varchar(20),";
+        sqlStr += "idcard varchar(40),";
+        sqlStr += "serverip varchar(16),";
+        sqlStr += "createtime timestamp,";
+        sqlStr += "modifiedtime timestamp,";
+        sqlStr += "upflag int,";
+        sqlStr += "tickettype varchar(40),";
+        sqlStr += "ticketstate varchar(40)";
+        sqlStr += ")";
+        if(!sendinfoQuery.exec(sqlStr))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        else
+        {
+            fieldMap.clear();
+            fieldMap.insert("id", "integer primary key autoincrement");
+            fieldMap.insert("cid", "varchar(20)");
+            fieldMap.insert("idcard", "varchar(40)");
+            fieldMap.insert("serverip", "varchar(16)");
+            fieldMap.insert("createtime", "timestamp");
+            fieldMap.insert("modifiedtime", "timestamp");
+            fieldMap.insert("upflag", "int");
+            fieldMap.insert("tickettype", "varchar(40)");
+            fieldMap.insert("ticketstate", "varchar(40)");
+            IsColumnExist(sendinfoQuery, "queryidticket", fieldMap);
+
+            if(!sendinfoQuery.exec("create index if not exists queryidticket_idx1 on queryidticket (cid, idcard)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+            if(!sendinfoQuery.exec("create index if not exists queryidticket_idx2 on queryidticket (createtime)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+        }
+    }
+    else
+    {
+        fieldMap.clear();
+        fieldMap.insert("id", "integer primary key autoincrement");
+        fieldMap.insert("cid", "varchar(20)");
+        fieldMap.insert("idcard", "varchar(40)");
+        fieldMap.insert("serverip", "varchar(16)");
+        fieldMap.insert("createtime", "timestamp");
+        fieldMap.insert("modifiedtime", "timestamp");
+        fieldMap.insert("upflag", "int");
+        fieldMap.insert("tickettype", "varchar(40)");
+        fieldMap.insert("ticketstate", "varchar(40)");
+        IsColumnExist(sendinfoQuery, "queryidticket", fieldMap);
+
+        if(!sendinfoQuery.exec("create index if not exists queryidticket_idx1 on queryidticket (cid, idcard)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        if(!sendinfoQuery.exec("create index if not exists queryidticket_idx2 on queryidticket (createtime)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+    }
+    if(!sendinfoQuery.exec("select count(*) from confirmidticket"))
+    {
+        qDebug()<< sendinfoQuery.lastError().text();
+
+        sqlStr = "create table confirmidticket(";
+        sqlStr += "id integer primary key autoincrement,";
+        sqlStr += "cid varchar(20),";
+        sqlStr += "idbuf varchar(80),";
+        sqlStr += "idcard varchar(40),";
+        sqlStr += "serverip varchar(16),";
+        sqlStr += "createtime timestamp,";
+        sqlStr += "modifiedtime timestamp,";
+        sqlStr += "upflag int,";
+        sqlStr += "ticketclass varchar(40),";
+        sqlStr += "tickettype varchar(40),";
+        sqlStr += "ticketkind varchar(40),";
+        sqlStr += "checkcount int";
+        sqlStr += ")";
+        if(!sendinfoQuery.exec(sqlStr))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        else
+        {
+            fieldMap.clear();
+            fieldMap.insert("id", "integer primary key autoincrement");
+            fieldMap.insert("cid", "varchar(20)");
+            fieldMap.insert("idbuf", "varchar(80)");
+            fieldMap.insert("idcard", "varchar(40)");
+            fieldMap.insert("serverip", "varchar(16)");
+            fieldMap.insert("createtime", "timestamp");
+            fieldMap.insert("modifiedtime", "timestamp");
+            fieldMap.insert("upflag", "int");
+            fieldMap.insert("ticketclass", "varchar(40)");
+            fieldMap.insert("tickettype", "varchar(40)");
+            fieldMap.insert("ticketkind", "varchar(40)");
+            fieldMap.insert("checkcount", "int");
+            IsColumnExist(sendinfoQuery, "confirmidticket", fieldMap);
+
+            if(!sendinfoQuery.exec("create index if not exists confirmidticket_idx1 on confirmidticket (createtime)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+            if(!sendinfoQuery.exec("create index if not exists confirmidticket_idx2 on confirmidticket (upflag)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+            if(!sendinfoQuery.exec("create index if not exists confirmidticket_idx3 on confirmidticket (cid, idcard)"))
+            {
+                qDebug()<< sendinfoQuery.lastError().text();
+            }
+        }
+    }
+    else
+    {
+        fieldMap.clear();
+        fieldMap.insert("id", "integer primary key autoincrement");
+        fieldMap.insert("cid", "varchar(20)");
+        fieldMap.insert("idbuf", "varchar(80)");
+        fieldMap.insert("idcard", "varchar(40)");
+        fieldMap.insert("serverip", "varchar(16)");
+        fieldMap.insert("createtime", "timestamp");
+        fieldMap.insert("modifiedtime", "timestamp");
+        fieldMap.insert("upflag", "int");
+        fieldMap.insert("ticketclass", "varchar(40)");
+        fieldMap.insert("tickettype", "varchar(40)");
+        fieldMap.insert("ticketkind", "varchar(40)");
+        fieldMap.insert("checkcount", "int");
+        IsColumnExist(sendinfoQuery, "confirmidticket", fieldMap);
+
+        if(!sendinfoQuery.exec("create index if not exists confirmidticket_idx1 on confirmidticket (createtime)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        if(!sendinfoQuery.exec("create index if not exists confirmidticket_idx2 on confirmidticket (upflag)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+        if(!sendinfoQuery.exec("create index if not exists confirmidticket_idx3 on confirmidticket (cid, idcard)"))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+        }
+    }
+}
+
+bool SqlTable::IsColumnExist(QSqlQuery db, QString tableName, QMap<QString, QString> fieldMap)
+{
+    QMap<QString, QString>::const_iterator i;
+    for(i=fieldMap.constBegin(); i!=fieldMap.constEnd(); ++i)
+    {
+        //qDebug()<<QString("select %1 from %2 limit 1").arg(i.key()).arg(tableName);
+        if(!db.exec(QString("select %1 from %2 limit 1").arg(i.key()).arg(tableName)))
+        {
+            qDebug()<< db.lastError().text();
+            //qDebug()<<QString("alter table %1 add column %2 %3").arg(tableName).arg(i.key()).arg(i.value());
+            if(!db.exec(QString("alter table %1 add column %2 %3").arg(tableName).arg(i.key()).arg(i.value())))
+            {
+                qDebug()<< db.lastError().text();
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
+bool SqlTable::InsertCheckTicket(QString tableName, QMap<QString, QString> fieldMap)
+{
+    QString insertColumnName;
+    QString insertValue;
+    QString insertSql;
+    QString updateSql;
+
+    //qDebug()<<"InsertCheckTicket start-------"+QDateTime::currentDateTime().toString("yyyy MM dd hh mm ss zzz");
+
+    insertColumnName = QString("insert into %1 (").arg(tableName);
+    updateSql = QString("update %1 set ").arg(tableName);
+
+    QMap<QString, QString>::const_iterator i;
+    for(i=fieldMap.constBegin(); i!=fieldMap.constEnd(); ++i)
+    {
+        insertColumnName.append(i.key());
+        insertColumnName.append(", ");
+        insertValue.append("'"+i.value()+"'");
+        insertValue.append(", ");
+        updateSql.append(i.key());
+        updateSql.append("=");
+        updateSql.append("'"+i.value()+"'");
+        updateSql.append(", ");
+    }
+    insertColumnName.append("createtime, upflag");
+    insertColumnName.append(") values (");
+    insertValue.append("strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime'), '0'");
+    insertValue.append(")");
+    insertSql = insertColumnName + insertValue;
+
+    updateSql.append("createtime=strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime'), upflag='0' ");
+    updateSql.append(QString("where id=(select id from %1 order by createtime asc limit 1)").arg(tableName));
+
+    int count;
+
+    if(!sendinfoQuery.exec(QString("select count(*) from %1").arg(tableName)))
+    {
+        qDebug()<< sendinfoQuery.lastError().text();
+        return 0;
+    }
+    sendinfoQuery.first();
+    count = sendinfoQuery.value(0).toInt();
+
+    if(count<100000)
+    {
+        //qDebug()<<insertSql;
+        if(!sendinfoQuery.exec(insertSql))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+            return 0;
+        }
+        //qDebug()<<"InsertCheckTicket end-------"+QDateTime::currentDateTime().toString("yyyy MM dd hh mm ss zzz");
+    }
+    else
+    {
+        //qDebug()<<insertSql;
+        if(!sendinfoQuery.exec(updateSql))
+        {
+            qDebug()<< sendinfoQuery.lastError().text();
+            return 0;
+        }
+        //qDebug()<<"InsertCheckTicket end-------"+QDateTime::currentDateTime().toString("yyyy MM dd hh mm ss zzz");
+    }
+    return 1;
+}
+bool SqlTable::UpdateCheckTicketFlag(QString tableName, QMap<QString, QString> upFieldMap, QMap<QString, QString> whereFieldMap)
+{
+    QString updateSql;
+    int mapCount = 0;
+    int pointerCount = 0;
+
+    //qDebug()<<"UpdateCheckTicketFlag start-------"+QDateTime::currentDateTime().toString("yyyy MM dd hh mm ss zzz");
+    updateSql = QString("update %1 set ").arg(tableName);
+
+    updateSql.append("modifiedtime=strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime'), upflag='1'");
+
+    QMap<QString, QString>::const_iterator i;
+    mapCount = upFieldMap.count();
+    if(mapCount)
+    {
+        pointerCount = 0;
+        updateSql.append(", ");
+        for(i=upFieldMap.constBegin(); i!=upFieldMap.constEnd(); ++i)
+        {
+            pointerCount++;
+            updateSql.append(i.key());
+            updateSql.append("=");
+            updateSql.append("'"+i.value()+"'");
+            if(mapCount > pointerCount)
+                updateSql.append(", ");
+        }
+    }
+    updateSql.append(" where ");
+
+    mapCount = whereFieldMap.count();
+    pointerCount = 0;
+    for(i=whereFieldMap.constBegin(); i!=whereFieldMap.constEnd(); ++i)
+    {
+        pointerCount++;
+        updateSql.append(i.key());
+        updateSql.append("=");
+        updateSql.append("'"+i.value()+"'");
+        if(mapCount > pointerCount)
+            updateSql.append(" and ");
+    }
+    //qDebug()<<updateSql;
+    if(!sendinfoQuery.exec(updateSql))
+    {
+        qDebug()<< sendinfoQuery.lastError().text();
+        return 0;
+    }
+    //qDebug()<<"UpdateCheckTicketFlag end-------"+QDateTime::currentDateTime().toString("yyyy MM dd hh mm ss zzz");
+    return 1;
+}
+int SqlTable::NoUpCountCheckTicket(QString tableName)
+{
+    if(!sendinfoQuery.exec(QString("select count(*) from %1 where upflag='0'").arg(tableName)))
+    {
+        qDebug()<< sendinfoQuery.lastError().text();
+        return 0;
+    }
+    sendinfoQuery.first();
+    return sendinfoQuery.value(0).toInt();
+}
+QByteArray SqlTable::ReadCheckTicket(QString tableName)
+{
+    QByteArray data;
+
+    if(!sendinfoQuery.exec(QString("select * from %1 where upflag='0' limit 1").arg(tableName)))
+    {
+        qDebug()<< sendinfoQuery.lastError().text();
+        return 0;
+    }
+    sendinfoQuery.first();
+    bool ok;
+
+    QString str = sendinfoQuery.value(1).toString();
+    str = BgComm::FormatString(str, 2, QChar(' '));
+    data = BgComm::StringToByteArray(str, 16, QChar(' '));
+    str = sendinfoQuery.value(2).toString();
+    str = BgComm::FormatString(str, 2, QChar(' '));
+    data += BgComm::StringToByteArray(str, 16, QChar(' '));
+
+    //qDebug()<<BgComm::ByteArrayToString(data, 16, true);
+    return data;
+}
+
+void SqlTable::UsrConfSqlInit()
+{
+    QSqlDatabase qdb;
+    if(QSqlDatabase::contains("qt_sql_default_connection"))
+        qdb = QSqlDatabase::database("qt_sql_default_connection");
+    else
+        qdb = QSqlDatabase::addDatabase("QSQLITE", "usrconfigqdb");// 如果要连接多个数据库，必须指定不同的连接名字，否则会覆盖上面的默认连接
+    qdb.setDatabaseName("/web/config/usrconfig.db");
+    if (!qdb.open())
+    {
+        qDebug()<< "open /web/config/usrconfig.db err!";
+        return;
+    }
+    usrConfQuery = QSqlQuery(qdb);
+
+    if(!usrConfQuery.exec("select count(*) from usrconfig"))
+    {
+        if(!usrConfQuery.exec("create table usrconfig(name varchar(20), data varchar(40))"))
+        {
+            qDebug()<< usrConfQuery.lastError().text();
+        }
+    }
+    qdb.close();
+}
+void SqlTable::SqlToUserconf()
+{
+    QSqlDatabase qdb;
+    if(QSqlDatabase::contains("usrconfigqdb"))
+        qdb = QSqlDatabase::database("usrconfigqdb");
+    else
+        qdb = QSqlDatabase::addDatabase("QSQLITE", "usrconfigqdb");// 如果要连接多个数据库，必须指定不同的连接名字，否则会覆盖上面的默认连接
+    qdb.setDatabaseName("/web/config/usrconfig.db");
+    if (!qdb.open())
+    {
+        qDebug()<< "open /web/config/usrconfig.db err!";
+        return;
+    }
+    usrConfQuery = QSqlQuery(qdb);
+
+    if(!usrConfQuery.exec("select * from usrconfig"))
+    {
+        qDebug()<< usrConfQuery.lastError().text();
+        qdb.close();
+        return;
+    }
+    while(usrConfQuery.next())
+    {
+        qs->setValue(usrConfQuery.value(0).toString(), usrConfQuery.value(1).toString());
+    }
+    qdb.close();
+}
+void SqlTable::UserconfToSql(QString name, QString data)
+{
+    QSqlDatabase qdb;
+    if(QSqlDatabase::contains("usrconfigqdb"))
+        qdb = QSqlDatabase::database("usrconfigqdb");
+    else
+        qdb = QSqlDatabase::addDatabase("QSQLITE", "usrconfigqdb");// 如果要连接多个数据库，必须指定不同的连接名字，否则会覆盖上面的默认连接
+    qdb.setDatabaseName("/web/config/usrconfig.db");
+    if (!qdb.open())
+    {
+        qDebug()<< "open /web/config/usrconfig.db err!";
+        return;
+    }
+    usrConfQuery = QSqlQuery(qdb);
+
+    if(!usrConfQuery.exec(QString("select count(*) from usrconfig where name='%1'").arg(name)))
+    {
+        qDebug()<< usrConfQuery.lastError().text();
+        qdb.close();
+        return;
+    }
+    //取出第一条记录，这个忘了下面一条usrConfQuery.value(0)是执行不了的，
+    //会出现“QSqlQuery::value: not positioned on a valid record”错误
+    if(!usrConfQuery.first())
+    {
+        qDebug()<< usrConfQuery.lastError().text();
+    }
+    int num = usrConfQuery.value(0).toInt();
+
+    if(num)
+    {
+        // 事务操作
+        QSqlDatabase::database().transaction();
+        bool rtn = usrConfQuery.exec(QString("update usrconfig set data='%1' where name='%2'").arg(data).arg(name));
+        if (rtn) {
+            QSqlDatabase::database().commit();
+        } else {
+            QSqlDatabase::database().rollback();
+            qDebug()<< usrConfQuery.lastError().text();
+        }
+    }
+    else
+    {
+        // 事务操作
+        QSqlDatabase::database().transaction();
+        bool rtn = usrConfQuery.exec(QString("insert into usrconfig (name, data) values ('%1', '%2')").arg(name).arg(data));
+        if (rtn) {
+            QSqlDatabase::database().commit();
+        } else {
+            QSqlDatabase::database().rollback();
+            qDebug()<< usrConfQuery.lastError().text();
+        }
+    }
+    qdb.close();
+}
+QDateTime SqlTable::SqlUserconfTimeRead()
+{
+    QDateTime time;
+    QSqlDatabase qdb;
+    if(QSqlDatabase::contains("usrconfigqdb"))
+        qdb = QSqlDatabase::database("usrconfigqdb");
+    else
+        qdb = QSqlDatabase::addDatabase("QSQLITE", "usrconfigqdb");// 如果要连接多个数据库，必须指定不同的连接名字，否则会覆盖上面的默认连接
+    qdb.setDatabaseName("/web/config/usrconfig.db");
+    if (!qdb.open())
+    {
+        qDebug()<< "open /web/config/usrconfig.db err!";
+        return time;
+    }
+    usrConfQuery = QSqlQuery(qdb);
+
+    usrConfQuery.exec("select * from usrconfig where name='time'");
+    //取出第一条记录，这个忘了下面一条usrConfQuery.value(0)是执行不了的，
+    //会出现“QSqlQuery::value: not positioned on a valid record”错误
+    if(!usrConfQuery.first())
+    {
+        qDebug()<< usrConfQuery.lastError().text();
+        qdb.close();
+        return time;
+    }
+    time = usrConfQuery.value(1).toDateTime();
+
+    qdb.close();
+    return time;
+}

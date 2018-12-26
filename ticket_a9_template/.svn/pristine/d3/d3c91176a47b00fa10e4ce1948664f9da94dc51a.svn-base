@@ -1,0 +1,197 @@
+/*
+ *  这个文件用于获取三辊闸反馈信息的
+ *  当三辊闸通过一个人时，会通过事件向from文件报告一次。
+*/
+#include "feedback.h"
+
+FeedBack::FeedBack(QObject *parent) :
+    QThread(parent)
+{
+    fm = this->parent();
+}
+void FeedBack::run()
+{
+#if HARDWAREVER != SDE_GA502_1_3 && HARDWAREVER != SDE_GA503_1_0
+    int fd;
+    bool powerFlag = 1;
+    quint16 powerofftimes=0;
+
+    fd = open(DEV_FEEDBACK, O_RDWR);
+    if(fd < 0)
+    {
+        qDebug()<<"open sendinfo_feedback error!!!";
+    }
+    emit TicketDebug("FeedBack run");
+    while(1)
+    {
+        if(!ioctl(fd,FEEDBACK1))
+        {
+            emit TicketDebug("feedback 1");
+            msleep(20);
+            if(!ioctl(fd,FEEDBACK1))
+            {
+                while(!ioctl(fd,FEEDBACK1));
+                emit TicketDebug("feedback 11");
+                UserEvent *ue = new UserEvent(CR::FeedBack,this);
+                qApp->postEvent(fm,ue);
+            }
+        }
+        if(!ioctl(fd,FEEDBACK2))
+        {
+            emit TicketDebug("feedback 2");
+            msleep(20);
+            if(!ioctl(fd,FEEDBACK2))
+            {
+                while(!ioctl(fd,FEEDBACK2));
+                emit TicketDebug("feedback 22");
+                UserEvent *ue = new UserEvent(CR::FeedBack,this);
+                qApp->postEvent(fm,ue);
+            }
+        }
+
+        if(!ioctl(fd,USB_FLGA))
+        {
+            emit TicketDebug("USB_FLGA 2");
+            msleep(20);
+            if(!ioctl(fd,USB_FLGA))
+            {
+                emit TicketDebug("USB_FLGA 22");
+            }
+        }
+
+        if(!ioctl(fd,USB_FLGB))
+        {
+            emit TicketDebug("USB_FLGB 2");
+            msleep(20);
+            if(!ioctl(fd,USB_FLGB))
+            {
+                emit TicketDebug("USB_FLGB 22");
+            }
+        }
+        if(!ioctl(fd,USB_FLGC))
+        {
+            emit TicketDebug("USB_FLGC 2");
+            msleep(20);
+            if(!ioctl(fd,USB_FLGC))
+            {
+                emit TicketDebug("USB_FLGC 22");
+            }
+        }
+        if(!ioctl(fd,USB_FLGD))
+        {
+            emit TicketDebug("USB_FLGD 2");
+            msleep(20);
+            if(!ioctl(fd,USB_FLGD))
+            {
+                emit TicketDebug("USB_FLGD 22");
+            }
+        }
+#if HARDWAREVER == SDE_GA501_1_3 || HARDWAREVER == SDE_GA501_1_4
+        if(!ioctl(fd,VDD_OK))
+        {
+            msleep(20);
+            if(!ioctl(fd,VDD_OK))
+            {
+                powerofftimes++;
+                emit TicketDebug(QString("vddok down----%1").arg(powerofftimes));
+                if(powerofftimes == 20)//25*20=500ms
+                {
+                    powerFlag = 0;
+                    UserEvent *ue = new UserEvent(CR::PowerOff,this);
+                    qApp->postEvent(fm,ue);
+                }
+            }
+        }
+        else
+        {
+            msleep(20);
+            powerofftimes=0;
+            if((ioctl(fd,VDD_OK))&&(powerFlag==0))
+            {
+                powerFlag = 1;
+                emit TicketDebug("vddok up");
+                UserEvent *ue = new UserEvent(CR::PowerOn,this);
+                qApp->postEvent(fm,ue);
+            }
+        }
+#endif
+        msleep(5);
+    }
+#else
+    int keys_fd;
+    struct input_event t;
+
+    keys_fd = open("/dev/input/event0", O_RDONLY);
+    if (keys_fd <= 0)
+    {
+        qDebug()<<"open sendinfo_feedback error!!!";
+        return;
+    }
+    emit TicketDebug("FeedBack run");
+    while(1)
+    {
+        if (read(keys_fd, &t, sizeof(t)) == sizeof(t))
+        {
+            if (t.type == EV_KEY)
+            {
+                if (t.value == 0 || t.value == 1)
+                {
+                    //printf ("key %d %s\n", t.code,(t.value) ? "Pressed" : "Released");
+                    if((t.code==KEY_UP)&&(t.value == 0))
+                    {
+                        emit TicketDebug("FeedBack KEY_UP");
+                        UserEvent *ue = new UserEvent(CR::FeedBack,this);
+                        qApp->postEvent(fm,ue);
+                    }
+                    if((t.code==KEY_DOWN)&&(t.value == 0))
+                    {
+                        emit TicketDebug("FeedBack KEY_DOWN");
+                        UserEvent *ue = new UserEvent(CR::FeedBack,this);
+                        qApp->postEvent(fm,ue);
+                    }
+                    if((t.code==KEY_HOME)&&(t.value == 1))
+                    {
+                        emit TicketDebug("POWER OFF");
+                    }
+                    if((t.code==KEY_PAGEUP)&&(t.value == 1))
+                    {
+                        emit TicketDebug("USBA USBOVERCURRENT!!!");
+                    }
+                    else if((t.code==KEY_PAGEUP)&&(t.value == 0))
+                    {
+                        emit TicketDebug("USBA OK!!!");
+                    }
+                    if((t.code==KEY_LEFT)&&(t.value == 1))
+                    {
+                        emit TicketDebug("USBB USBOVERCURRENT!!!");
+                    }
+                    else if((t.code==KEY_LEFT)&&(t.value == 0))
+                    {
+                        emit TicketDebug("USBB OK!!!");
+                    }
+                    if((t.code==KEY_RIGHT)&&(t.value == 1))
+                    {
+                        emit TicketDebug("USBC USBOVERCURRENT!!!");
+                    }
+                    else if((t.code==KEY_RIGHT)&&(t.value == 0))
+                    {
+                        emit TicketDebug("USBC OK!!!");
+                    }
+                    if((t.code==KEY_END)&&(t.value == 1))
+                    {
+                        emit TicketDebug("USBD USBOVERCURRENT!!!");
+                    }
+                    else if((t.code==KEY_END)&&(t.value == 0))
+                    {
+                        emit TicketDebug("USBD OK!!!");
+                    }
+                    if(t.code==KEY_ESC)
+                        break;
+                }
+            }
+        }
+        msleep(5);
+    }
+#endif
+
+}

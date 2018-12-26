@@ -1,0 +1,54 @@
+#ifndef FILEGPIO_H
+#define FILEGPIO_H
+
+#include <QObject>
+#include <QDebug>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <termios.h>
+#include <errno.h>
+#include <assert.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <linux/soundcard.h>
+#include "config.h"
+
+#define DEV_GATE_GPIO   "/dev/sendinfo_gpio"
+#define DEV_MIXER 	"/dev/mixer"
+
+#define LED_GREEN 	1   //PCB丝印GREEN1
+#define LED_RED 	0   //PCB丝印RED1
+#define BLED_GREEN 	8   //PCB丝印GREEN2
+#define BLED_RED 	9   //PCB丝印RED2
+
+#define OPEN_DOOR	3
+#define OPEN_DOOR1	4   //PCB丝印P4 ON1 COM1
+#define OPEN_DOOR2	5   //PCB丝印P5 ON2 COM2
+
+#define USB_ENA		11
+#define USB_ENB		12
+#define USB_ENC		13
+#define USB_END		14
+
+#define BIGCAP_CONTROL	16
+#define FT4232_RST	19
+#define GL850FE21_RST	17
+class FileGpio : public QObject
+{
+    Q_OBJECT
+public:
+    explicit FileGpio(QObject *parent = 0);
+    int init();
+     int initusb();
+     int vdddown();
+    int ctrl(quint8 type,quint8 cmd);
+    int fd;
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // FILEGPIO_H

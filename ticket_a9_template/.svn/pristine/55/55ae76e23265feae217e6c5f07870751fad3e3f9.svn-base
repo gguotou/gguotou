@@ -1,0 +1,25 @@
+#ifndef DEBUGFORM_H
+#define DEBUGFORM_H
+
+#include <QWidget>
+#include "userevent.h"
+#include "ui_debugform.h"
+
+namespace Ui {
+    class DebugForm;
+}
+
+class DebugForm : public QWidget
+{
+    Q_OBJECT
+
+public:
+    explicit DebugForm(QWidget *parent = 0);
+    ~DebugForm();
+
+private:
+    Ui::DebugForm *ui;
+    bool event(QEvent *);
+};
+
+#endif // DEBUGFORM_H

@@ -1,0 +1,96 @@
+/*
+ *用于控制三辊闸开关门的，当调用ctrl函数，向其传递参数(3,0)关门，传递参数(3,1)开门
+*/
+#include "filegpio.h"
+
+FileGpio::FileGpio(QObject *parent) :
+    QObject(parent)
+{
+#if HARDWAREVER != SDE_GA502_1_3 && HARDWAREVER != SDE_GA503_1_0
+    fd = open(DEV_GATE_GPIO, O_RDWR);
+    if(fd < 0)
+    {
+        qDebug()<<"open gate_gpio error!!!";
+    }
+#endif
+}
+int FileGpio::init()
+{
+#if HARDWAREVER != SDE_GA502_1_3 && HARDWAREVER != SDE_GA503_1_0
+#if HARDWAREVER == SDE_GA501_1_4
+    ioctl(fd,GL850FE21_RST,0);
+    ioctl(fd,GL850FE21_RST,1);
+    sleep(2);
+
+#endif
+    ioctl(fd,USB_ENA,1);
+    ioctl(fd,USB_ENB,1);
+    ioctl(fd,USB_ENC,1);
+    ioctl(fd,USB_END,1);
+
+    return ioctl(fd,LED_GREEN,0);
+#else
+    return 0;
+#endif
+}
+int FileGpio::initusb()
+{
+#if HARDWAREVER == SDE_GA501_1_4
+    ioctl(fd,GL850FE21_RST,0);
+    ioctl(fd,GL850FE21_RST,1);
+    sleep(1);
+    ioctl(fd,FT4232_RST,0);
+    ioctl(fd,FT4232_RST,1);
+    sleep(2);
+#endif
+    return 0;
+}
+int FileGpio::vdddown()
+{
+#if HARDWAREVER == SDE_GA501_1_4
+   ioctl(fd,BIGCAP_CONTROL,0);//关闭法拉电容功能，----默认开启
+#endif
+    return 0;
+}
+int FileGpio::ctrl(quint8 type, quint8 cmd)
+{
+#if HARDWAREVER != SDE_GA502_1_3 && HARDWAREVER != SDE_GA503_1_0
+    ioctl(fd,type,cmd);
+#else
+    if(cmd)
+    {
+        switch(type)
+        {
+        case LED_GREEN:system("echo 1 > /sys/class/leds/leda_green/brightness");break;
+        case LED_RED:system("echo 1 > /sys/class/leds/leda_red/brightness");break;
+        case BLED_GREEN:system("echo 1 > /sys/class/leds/ledb_green/brightness");break;
+        case BLED_RED:system("echo 1 > /sys/class/leds/leda_red/brightness");break;
+
+        case OPEN_DOOR:
+            system("echo 1 > /sys/class/leds/relay_out1/brightness");
+            system("echo 1 > /sys/class/leds/relay_out2/brightness");break;
+        case OPEN_DOOR1:system("echo 1 > /sys/class/leds/relay_out1/brightness");break;
+        case OPEN_DOOR2:system("echo 1 > /sys/class/leds/relay_out2/brightness");break;
+        default:break;
+        }
+    }
+    else
+    {
+        switch(type)
+        {
+        case LED_GREEN:system("echo 0 > /sys/class/leds/leda_green/brightness");break;
+        case LED_RED:system("echo 0 > /sys/class/leds/leda_red/brightness");break;
+        case BLED_GREEN:system("echo 0 > /sys/class/leds/ledb_green/brightness");break;
+        case BLED_RED:system("echo 0 > /sys/class/leds/leda_red/brightness");break;
+
+        case OPEN_DOOR:
+            system("echo 0 > /sys/class/leds/relay_out1/brightness");
+            system("echo 0 > /sys/class/leds/relay_out2/brightness");break;
+        case OPEN_DOOR1:system("echo 0 > /sys/class/leds/relay_out1/brightness");break;
+        case OPEN_DOOR2:system("echo 0 > /sys/class/leds/relay_out2/brightness");break;
+        default:break;
+        }
+    }
+#endif
+    return 0;
+}

@@ -1,0 +1,752 @@
+#include "facedetect.h"
+
+FaceDetect::FaceDetect(QObject *parent) :
+    QThread(parent)
+{
+    qs = new QSettings(QS_FILEPATH, QSettings::IniFormat);
+    QString comStr;
+    QString str;
+    str = qs->value("AFACEDETECTCOM","COM0").toString();
+
+    switch(str.mid(3,1).toInt())
+    {
+        case 0x01:comStr = COM1;break;
+        case 0x02:comStr = COM2;break;
+        case 0x03:comStr = COM3;break;
+        case 0x04:comStr = COM4;break;
+        case 0x05:comStr = COM5;break;
+        case 0x06:comStr = COM6;break;
+        default:comStr = FACEDETECTCOM;break;
+    }
+    if(str.mid(3,1).toInt() >=1 && str.mid(3,1).toInt()<=6)
+    {
+        qDebug("facedetect com is defined by user.conf");
+    }
+    else
+    {
+        qDebug("facedetect com is defined by config.h");
+    }
+    if(comStr.indexOf("ttymxc")>=0)
+        IsComOnboardFlag = 1;
+    else
+        IsComOnboardFlag = 0;
+    if(IsComOnboardFlag)
+    {
+        QByteArray a;
+        a = comStr.toLatin1();
+        fp = open(a.data(),O_RDWR|O_NOCTTY|O_NDELAY); //打开串口0读写 //以非阻塞模式打开串口//O_NDELAY 等价于 O_NOBLOCK
+        if(fp == -1)
+        {
+            qDebug()<<QString("open %1 err").arg(comStr);
+            comOpenErr = 1;
+            return;
+        }
+    }
+    else
+    {
+        myCom = new Posix_QextSerialPort(comStr,QextSerialBase::Polling);
+        myCom->open(QIODevice::ReadWrite);
+    }
+    comOpenErr = 0;
+    fm = this->parent();
+
+    FaceHeartTimer = new QTimer(this);
+    connect(FaceHeartTimer,SIGNAL(timeout()),this,SLOT(FaceHeartTimerOut()));
+
+    facedeverrtimes=0;
+    facedeverrflag=1;
+
+}
+void FaceDetect::CloseCom()
+{
+    if(IsComOnboardFlag)
+        close(fp);
+    else
+        myCom->close();
+}
+void FaceDetect::QuitFlag()
+{
+    quit_flag =1;
+}
+void FaceDetect::SendBuf(QByteArray buf)
+{
+
+    if(comOpenErr)return;
+    if(IsComOnboardFlag)
+    {
+        char *message;
+        message = buf.data();
+        write(fp, message, buf.size());
+    }
+    else
+    {
+        myCom->write(buf);
+    }
+
+}
+
+QByteArray FaceDetect::ReadMyCom()
+{
+    if(comOpenErr)return 0;
+    if(IsComOnboardFlag)
+    {
+        QByteArray temp;
+        timeval tv;
+        int nread;
+        fd_set rfds;
+        char buff[512];
+
+        int i=0;
+
+        int readFlag = 0;
+        bool dataFlag = 0;
+        temp.resize(0);
+
+        while(1)
+        {
+            if(quit_flag)
+            {
+                break;
+            }
+            tv.tv_sec=0;
+            tv.tv_usec=500;
+            FD_ZERO(&rfds);
+            FD_SET(fp, &rfds);
+
+            readFlag = select(1+fp, &rfds, NULL, NULL, &tv);
+            if (readFlag > 0)
+            {
+                dataFlag = 1;
+                if (FD_ISSET(fp, &rfds))
+                {
+                    nread = read(fp, buff, 512);
+
+                    for(i=0;i<nread;i++)
+                    {
+                        temp[temp.length()] = buff[i];
+                    }
+                }
+            }
+            if((readFlag == 0)&&dataFlag)
+            {
+                dataFlag = 0;
+                return temp;
+            }
+            msleep(5);
+        }
+        return temp;
+    }
+    else
+    {
+        QByteArray temp;
+        QByteArray buf;
+        bool readflag = 0;
+        while(1)
+        {
+            if(quit_flag)
+            {
+                break;
+            }
+            buf = myCom->readAll();
+            if(buf.isEmpty() && (readflag == 0))
+            {
+            }
+            else if((!buf.isEmpty()) && (readflag))
+            {
+                temp += buf;
+                readflag = 1;
+            }
+            else if((!buf.isEmpty()) && (readflag == 0))
+            {
+                temp = buf;
+                readflag = 1;
+            }
+            else if(buf.isEmpty() && readflag)
+            {
+                return temp;
+            }
+            msleep(5);
+        }
+        return temp;
+    }
+}
+void FaceDetect::run()
+{
+    quit_flag =0;
+    QByteArray temp;
+    QString str;
+    if(comOpenErr)return;
+    if(IsComOnboardFlag)
+    {
+        struct termios options;
+
+        tcgetattr(fp,&options);
+        //设置波特率
+        switch(0x04)
+        {
+            case 0x00://BAUD4800
+                cfsetispeed(&options,B4800);
+                cfsetospeed(&options,B4800);
+                break;
+            case 0x01://BAUD9600
+                cfsetispeed(&options,B9600);
+                cfsetospeed(&options,B9600);
+                break;
+            case 0x02://BAUD38400
+                cfsetispeed(&options,B38400);
+                cfsetospeed(&options,B38400);
+                break;
+            case 0x03://BAUD57600
+                cfsetispeed(&options,B57600);
+                cfsetospeed(&options,B57600);
+                break;
+            case 0x04://BAUD115200
+                cfsetispeed(&options,B115200);
+                cfsetospeed(&options,B115200);
+                break;
+            default://BAUD9600
+                cfsetispeed(&options,B9600);
+                cfsetospeed(&options,B9600);
+                break;
+        }
+        options.c_cflag |= (CLOCAL|CREAD);
+
+        options.c_lflag  &= ~(ICANON | ECHO | ECHOE | ISIG);  /*Input*/
+        options.c_oflag  &= ~OPOST;   /*Output*/
+        options.c_iflag  &= ~(ICRNL|IXON);
+
+        tcsetattr(fp,TCSANOW,&options);
+    }
+    else
+    {
+        //设置波特率
+        switch(0x04)
+        {
+            case 0x00://BAUD4800
+                myCom->setBaudRate(BAUD4800);
+                break;
+            case 0x01://BAUD9600
+                myCom->setBaudRate(BAUD9600);
+                break;
+            case 0x02://BAUD38400
+                myCom->setBaudRate(BAUD38400);
+                break;
+            case 0x03://BAUD57600
+                myCom->setBaudRate(BAUD57600);
+                break;
+            case 0x04://BAUD115200
+                myCom->setBaudRate(BAUD115200);
+                break;
+            default://BAUD9600
+                myCom->setBaudRate(BAUD9600);
+                break;
+        }
+
+        myCom->setDataBits(DATA_8);
+        myCom->setParity(PAR_NONE);
+        myCom->setStopBits(STOP_1);
+
+        //设置数据流控制
+        myCom->setFlowControl(FLOW_OFF);
+        //设置延时
+        myCom->setTimeout(5);
+    }
+    emit TicketDebug("FaceDetect Run");
+#if FACEMODE == BAIDUFACE
+    FaceHeartTimer->start(FACEHEARTTIME*1000);//
+    while(1)
+    {
+        if(quit_flag)
+        {
+            delete FaceHeartTimer;
+            //qDebug("BREAK WHILE IN BORAD-----------------------------");
+            break;
+        }
+        temp = ReadMyCom();
+        if((quint8)temp.data()[0]!=0xEB)
+        {
+            emit TicketDebug("face data's head is err!");
+            emit TicketDebug(QString("receive from face data:")+BgComm::ByteArrayToString(temp, 16, true));
+            temp.resize(0);
+            continue;
+        }
+        if((quint8)temp.data()[0]==0xEB && (quint8)temp.data()[temp.length()-1]!=0xA8)
+        {
+            emit TicketDebug("read again");
+            temp += ReadMyCom();
+        }
+        if((quint8)temp.data()[1]==0x05 && (quint8)temp.data()[2]==0x00 && (quint8)temp.data()[5]==0xA8 && temp.length() > 6)
+        {
+           emit TicketDebug("----heart + face  , remove heart ----");
+           if(facedeverrflag)
+           {
+               UserEvent *ue = new UserEvent(CR::FACE,this);
+               ue->type = 0xFE;
+               qApp->postEvent(fm,ue);
+               emit TicketDebug("facedevice  ok");
+           }
+           temp = temp.remove(0,6);
+           facedeverrflag=0;
+           facedeverrtimes=0;
+           FaceHeartTimer->stop();
+           FaceHeartTimer->start(FACEHEARTTIME*1000);
+        }
+
+        Prepare_fd(temp);
+        if((temp.length() > 238 && (quint8)temp.data()[238]==0xEB && (quint8)temp.data()[239]==0x05 && (quint8)temp.data()[240]==0x00) ||
+           (temp.length() > 135 && (quint8)temp.data()[135]==0xEB && (quint8)temp.data()[136]==0x05 && (quint8)temp.data()[137]==0x00))
+        {
+            emit TicketDebug(QString("temp.length() = %1").arg(temp.length()));
+            emit TicketDebug("----face +  heart   ----");
+            if(facedeverrflag)
+            {
+                UserEvent *ue = new UserEvent(CR::FACE,this);
+                ue->type = 0xFE;
+                qApp->postEvent(fm,ue);
+                emit TicketDebug("facedevice  ok");
+            }
+            facedeverrflag=0;
+            facedeverrtimes=0;
+            FaceHeartTimer->stop();
+            FaceHeartTimer->start(FACEHEARTTIME*1000);
+        }
+        msleep(25);
+    }
+#else
+#if FACEMODE == TENCENTFACE
+    while(1)
+    {
+        if(quit_flag)
+        {
+            delete FaceHeartTimer;
+            //qDebug("BREAK WHILE IN BORAD-----------------------------");
+            break;
+        }
+        temp = ReadMyCom();
+        emit TicketDebug("face recv:"+BgComm::ByteArrayToString(temp,16,true));
+        //EB 2字节长度 状态  数据 校验 A8
+        if((quint8)temp.data()[0]==0xEB && (quint8)temp.data()[temp.length()-1]!=0xA8)
+        {
+            TicketDebug("read again");
+            temp += ReadMyCom();
+        }
+        //EB 2字节长度 状态  数据 校验 A8
+        if((quint8)temp.data()[0]==0xEB && (quint8)temp.data()[temp.length()-1]==0xA8)
+        {
+            if(BgComm::SUMVerify(temp.mid(1,temp.length()-3)) == (quint8)temp.data()[temp.length()-2])
+            {
+
+                if((quint8)temp.data()[3] == 0x00)
+                {
+                    temp = temp.mid(4,temp.length()-6);
+                    ToFormTicket(temp,0x00,4);
+                }
+                else if((quint8)temp.data()[3] == 0x09)
+                    ToFormTicket(temp,0x09,4);
+                else
+                    ToFormTicket(temp,0xFF,4);
+
+            }
+            else
+            {
+                qDebug()<<BgComm::SUMVerify(temp.mid(1,temp.length()-3))<<(quint8)temp.data()[temp.length()-2];
+                emit TicketDebug("verify err!");
+            }
+        }
+        msleep(25);
+    }
+#else
+    while(1)
+    {
+        if(quit_flag)
+        {
+            delete FaceHeartTimer;
+            //qDebug("BREAK WHILE IN BORAD-----------------------------");
+            break;
+        }
+        temp = ReadMyCom();
+        emit TicketDebug("face recv:"+BgComm::ByteArrayToString(temp,16,true));
+        if((quint8)temp.data()[0]==0xEB && (quint8)temp.data()[temp.length()-1]!=0xA8)
+        {
+            TicketDebug("read again");
+            temp += ReadMyCom();
+        }
+        if((quint8)temp.data()[0]==0xEB && (quint8)temp.data()[temp.length()-1]==0xA8)
+        {
+            //qDebug()<<BgComm::SUMVerify(temp.mid(1,temp.length()-3))<<(quint8)temp.data()[temp.length()-2];
+            //EB 2字节长度 状态  数据 校验 A8
+            if(BgComm::SUMVerify(temp.mid(1,temp.length()-3)) == (quint8)temp.data()[temp.length()-2])
+            {
+
+                if((quint8)temp.data()[3] == 0x00)
+                {
+                    temp = temp.mid(4,temp.length()-6);
+                    ToFormTicket(temp,0x00,4);
+                }
+                else
+                    ToFormTicket(temp,0xFF,4);
+
+            }
+            else
+            {
+                qDebug()<<BgComm::SUMVerify(temp.mid(1,temp.length()-3))<<(quint8)temp.data()[temp.length()-2];
+                emit TicketDebug("verify err!");
+            }
+
+        }
+        msleep(25);
+    }
+#endif
+#endif
+
+}
+
+quint8 FaceDetect::Prepare_fd(QByteArray data)
+{
+    QByteArray ticketBuf;
+    QString str;
+    quint16 IsSucess;
+    if(data.length()>=6)
+    {
+        if((quint8)data.data()[1]!=0x05)//心跳不打印
+            emit TicketDebug(QString("receive from face:")+BgComm::ByteArrayToString(data, 16, true));
+        if(((quint8)data.data()[0]==0xEB)&&((quint8)data.data()[data.length()-1]==0xA8))
+        {
+            if(((quint8)data.data()[1]==0x01))//识别端返回识别结果
+            {
+                IsSucess = (quint8)data.data()[2];
+//                switch((quint8)data.data()[2])
+//                {
+//                    case 0x00:IsSucess=0;break;//比对成功
+//                    case 0x01:IsSucess=1;break;//保留
+//                    case 0x02:IsSucess=2;break;//失败（连续识别次数<3次）//baidu会比对三次
+//                    case 0x03:IsSucess=3;break;//失败（连续识别次数>3次）
+//                    case 0x10:IsSucess=10;break;//等待结果反馈
+//                    case 0x30:IsSucess=30;break;//非活体
+//                    case 0x40:IsSucess=40;break;//采集人脸太小
+//                    case 0x42:IsSucess=42;break;//人脸角度过大（未正视）
+//                    case 0x43:IsSucess=43;break;//人脸模糊
+//                    case 0x50:IsSucess=50;break;//通讯超时
+//                    default:IsSucess=1;break;
+//                }
+                ticketNoLen = (quint8)data.data()[3];
+                ticketNoNum = (quint8)data.data()[4];ticketNoNum=0;//
+                //quint8 ticketStyle;
+                ticketNo = data.mid(5,100);
+                QByteArray ticketNoRe = data.mid(5,ticketNoLen);
+                str = ticketNoRe;
+                emit TicketDebug(str);
+                for(int k=0;k<str.length();k++)
+                {
+                    if(str.at(k) == ';')
+                        ticketNoNum ++;
+                }
+                emit TicketDebug("ticketNoNum(;):"+QString::number(ticketNoNum));
+                /*
+                if(str.indexOf("_BC")>=0)
+                {
+                    ticketNoRe = ticketNoRe.mid(str.lastIndexOf("_")+1,ticketNoLen-str.lastIndexOf("_")-1);
+                    ticketStyle=0x02;
+                    emit  TicketDebug(QString("BC:")+(QString)ticketNoRe);
+                }
+                else if(str.indexOf("_IC")>=0)
+                {
+                    ticketNoRe = ticketNoRe.mid(str.lastIndexOf("_")+1,ticketNoLen-str.lastIndexOf("_")-1);
+                    ticketStyle=0x03;
+                    emit TicketDebug(QString("IC:")+(QString)ticketNoRe);
+                }
+                else if(str.indexOf("_ID")>=0)
+                {
+                    ticketNoRe = ticketNoRe.mid(str.lastIndexOf("_")+1,ticketNoLen-str.lastIndexOf("_")-1);
+                    ticketStyle=0x04;
+                    emit TicketDebug(QString("ID:")+(QString)ticketNoRe);
+                }
+                else
+                {
+                    ticketStyle=0x02;
+                    emit TicketDebug(QString("ID:")+(QString)ticketNoRe);
+                }
+                */
+                ticketBuf = data.mid(105, 128);//交互提示语base64   20->128
+                str = ticketBuf;
+                str = (QString)QByteArray::fromBase64(str.toAscii());//交互提示语
+                emit TicketDebug(QString("Compare Result：%1  ").arg(IsSucess)+str);
+                if(IsSucess!=2)
+                {
+                    UserEvent *ue = new UserEvent(CR::FACE,this);
+                    ue->result = IsSucess;
+                    ue->type = 0x01;
+//                    ue->name = name;
+//                    ue->ticketlen = ticketNoLen;
+//                    ue->ticketnum = ticketNoNum;
+//                    ue->ticketno = ticketNo;
+                    ue->ticketnore = ticketNoRe;
+                    //ue->ticketstyle = ticketStyle;
+                    ue->ticketInfostr = str;
+                    qApp->postEvent(fm,ue);
+                }
+                return 0;
+            }
+            else if((quint8)data.data()[1]==0x07)//识别端返回注册结果
+            {
+                IsSucess=(quint8)data.data()[2]*256*256*256+(quint8)data.data()[3]*256*256+(quint8)data.data()[4]*256+(quint8)data.data()[5];
+                ticketBuf = data.mid(6, 128);//结果描述--UTF8编码后再BASE64编码
+                str = ticketBuf;
+                str = (QString)QByteArray::fromBase64(str.toAscii());//交互提示语
+                emit TicketDebug(QString("Register Result:%1  ").arg(IsSucess)+str);
+
+                UserEvent *ue = new UserEvent(CR::FACE,this);
+                ue->result = IsSucess;
+                ue->type = 0x07;
+                ue->ticketInfostr = str;
+                qApp->postEvent(fm,ue);
+                return 0;
+            }
+            else if((quint8)data.data()[1]==0x05)//心跳
+            {
+                FaceHeartTimer->stop();
+                FaceHeartTimer->start(FACEHEARTTIME*1000);
+                if((quint8)data.data()[2]!=0x00)
+                {
+                    facedeverrtimes++;
+                    emit TicketDebug(QString("facedeverrtimes=%1").arg(facedeverrtimes));
+                    if(facedeverrtimes >= 3)
+                    {
+                        facedeverrflag=1;
+                        UserEvent *ue = new UserEvent(CR::FACE,this);
+                        ue->type = 0xFF;
+                        qApp->postEvent(fm,ue);
+                        emit TicketDebug("facedevice  err");
+                    }
+                }
+                else
+                {
+                    if(facedeverrflag)
+                    {
+                        UserEvent *ue = new UserEvent(CR::FACE,this);
+                        ue->type = 0xFE;
+                        qApp->postEvent(fm,ue);
+                        emit TicketDebug("facedevice  ok");
+                    }
+
+                    facedeverrflag=0;
+                    facedeverrtimes=0;
+                }
+                return 0;
+            }
+            else if((quint8)data.data()[1]==0x04)//读取当前闸机和园门（闸机组）ID
+            {
+                 return 0;
+            }
+            else if((quint8)data.data()[1]==0x03)//读取当前闸机检票数量和当前园门（闸机组）的检票数量
+            {
+                 return 0;
+            }
+            else if((quint8)data.data()[1]==0x08)//人证比对结果 EB 08 2字节长度 状态  数据 校验 A8
+            {
+                if(BgComm::SUMVerify(data.mid(1,data.length()-3)) == (quint8)data.data()[data.length()-2])
+                {
+                    if((quint8)data.data()[4] == 0x00)
+                    {
+                        data = data.mid(5,data.length()-7);
+                        ToFormTicket(data,0x00,4);
+                    }
+                    else if((quint8)data.data()[4] == 0x09)
+                        ToFormTicket(data,0x09,4);
+                    else
+                        ToFormTicket(data,0xFF,4);
+
+                }
+                else
+                {
+                    qDebug()<<"11111"<<BgComm::SUMVerify(data.mid(1,data.length()-3))<<(quint8)data.data()[data.length()-2];
+                    emit TicketDebug("verify err!");
+                }
+            }
+            else
+               return 0;
+        }
+        else
+          return 0;
+    }
+    else
+        return 0;
+}
+
+
+void FaceDetect::face(quint8 type,quint8 rusult,QString ticketOrderBase64)
+{
+    QByteArray buf;
+    quint8 lenH,lenL;
+#if FACEMODE == BAIDUFACE
+    if(rusult == 0x08)//人证比对
+    {
+        lenH = facedata.length()/256;
+        lenL = facedata.length()%256;
+        buf[0] = 0xEB;
+        buf[1] = type;
+        buf[2] = rusult;
+        buf[buf.length()] = lenH;//长度H
+        buf[buf.length()] = lenL;//长度L
+        buf  += facedata;
+        buf[buf.length()] = BgComm::SUMVerify(buf.mid(1,buf.length()-1));
+        buf[buf.length()] = 0xA8;
+    }
+    else
+    {
+        lenH = ticketOrderBase64.length()/256;
+        lenL = ticketOrderBase64.length()%256;
+        buf[0] = 0xEB;
+        buf[1] = type;
+        buf[2] = rusult;
+        buf[3] = 0x00;//保留字段
+        buf[4] = 0x00;//保留字段
+        buf[5] = 0x00;//保留字段
+        buf[6] = 0x00;//保留字段
+        buf[7] = lenH;//长度H
+        buf[8] = lenL;//长度L
+        buf   += ticketOrderBase64;
+        buf[buf.length()] = 0x00;//备用
+        buf[buf.length()] = 0x00;//备用
+        buf[buf.length()] = 0x00;//备用
+        buf[buf.length()] = 0x00;//备用
+        buf[buf.length()] = 0xA8;
+    }
+    SendBuf(buf);
+    if(buf.length() < 32)
+        emit TicketDebug(QString("send to baiduface :")+BgComm::ByteArrayToString(buf, 16, true));
+    else
+        emit TicketDebug(QString("send to baiduface :")+BgComm::ByteArrayToString(buf.mid(0,32), 16, true)+"......");
+#else
+#if FACEMODE == TENCENTFACE
+    buf  = facedata;
+    lenH = buf.length()/256;
+    lenL = buf.length()%256;
+    buf.insert(0,lenL);//长度L
+    buf.insert(0,lenH);//长度H
+    buf[buf.length()] = BgComm::SUMVerify(buf);
+    buf.insert(0,0xEB);
+    buf[buf.length()] = 0xA8;
+    SendBuf(buf);
+    if(buf.length() < 32)
+        emit TicketDebug(QString("send to tencentface :")+BgComm::ByteArrayToString(buf, 16, true));
+    else
+        emit TicketDebug(QString("send to tencentface :")+BgComm::ByteArrayToString(buf.mid(0,32), 16, true)+"......");
+#else
+    buf  = facedata;
+    lenH = buf.length()/256;
+    lenL = buf.length()%256;
+    buf.insert(0,lenL);//长度L
+    buf.insert(0,lenH);//长度H
+    buf[buf.length()] = BgComm::SUMVerify(buf);
+    buf.insert(0,0xEB);
+    buf[buf.length()] = 0xA8;
+    SendBuf(buf);
+    if(buf.length() < 32)
+        emit TicketDebug(QString("send to arcface :")+BgComm::ByteArrayToString(buf, 16, true));
+    else
+        emit TicketDebug(QString("send to arcface :")+BgComm::ByteArrayToString(buf.mid(0,32), 16, true)+"......");
+#endif
+#endif
+
+}
+//以下比对确认
+void FaceDetect::faceconfirm(quint8 type,quint8 result,quint8 len,quint8 num,QByteArray ticketno)
+{
+    QByteArray buf;
+    buf[0] = 0xEB;
+    buf[1] = type;
+    buf[2] = result;
+    buf[3] = 0x00;//检票表示符
+    buf[4] = 0x00;//检票表示符
+    buf[5] = 0x00;//检票表示符
+    buf[6] = 0x00;//检票表示符
+    if(ticketNoNum == 0)
+    {
+        buf[buf.length()] = ticketNoLen ;//
+        buf[buf.length()] = ticketNoNum;//
+        buf += ticketNo;//
+    }
+    else
+    {
+        buf[buf.length()] = len;
+        buf[buf.length()] = num;//
+        buf += ticketno;//
+    }
+    buf[buf.length()] = 0xA8;
+    SendBuf(buf);
+    emit TicketDebug(QString("send to face confirm:")+BgComm::ByteArrayToString(buf, 16, true));
+}
+//以下录入确认
+void FaceDetect::faceconfirm2(quint8 type,quint8 result,quint8 len,quint8 num,QByteArray ticketno)
+{
+    QByteArray buf;
+    buf[0] = 0xEB;
+    buf[1] = type;
+    buf[2] = result;
+    buf[3] = 0x00;//检票表示符
+    buf[4] = 0x00;//检票表示符
+    buf[5] = 0x00;//检票表示符
+    buf[6] = 0x00;//检票表示符
+    buf[buf.length()] = len;//
+    buf[buf.length()] = num;//
+    buf+=ticketno;
+    buf[buf.length()] = 0xA8;
+    SendBuf(buf);
+    emit TicketDebug(QString("send to face confirm2:")+BgComm::ByteArrayToString(buf, 16, true));
+}
+void FaceDetect::ToFormTicket(QByteArray d,quint8 result,quint8 type)
+{
+#if FACEMODE == TENCENTFACE
+    UserEvent *ue = new UserEvent(CR::TencentFace,this);
+#else
+#if FACEMODE == ARCFACE
+    UserEvent *ue = new UserEvent(CR::ArcFace,this);
+#else
+    UserEvent *ue = new UserEvent(CR::BaiduFace,this);
+#endif
+#endif
+    ue->byteArray = d;
+    ue->result = result;
+    ue->type = type;
+    qApp->postEvent(fm,ue);
+}
+
+bool FaceDetect::event(QEvent *event)
+{
+    if(event->type() == QEvent::User)
+    {
+        UserEvent * ue = static_cast<UserEvent *>(event);
+        switch(ue->userType)
+        {
+            case CR::FACE:
+                face(ue->type,ue->result,ue->ticketOrderBase64);
+                break;
+            case CR::FACECONFIRM:
+                faceconfirm(ue->type,ue->result,ue->ticketlen,ue->ticketnum,ue->ticketno);
+                break;
+            case CR::FACECONFIRM2:
+                faceconfirm2(ue->type,ue->result,ue->ticketlen,ue->ticketnum,ue->ticketno);
+                break;
+
+            default:
+                return false;
+        }
+    }
+    else
+    {
+        return QThread::event(event);
+    }
+    return true;
+}
+void FaceDetect::FaceHeartTimerOut()
+{
+    facedeverrflag=1;
+    UserEvent *ue = new UserEvent(CR::FACE,this);
+    ue->type = 0xFF;
+    qApp->postEvent(fm,ue);
+    emit TicketDebug("FaceHeartTimerOut && facedevice  err");
+
+    FaceHeartTimer->stop();
+    FaceHeartTimer->start(FACEHEARTTIME*1000);
+}

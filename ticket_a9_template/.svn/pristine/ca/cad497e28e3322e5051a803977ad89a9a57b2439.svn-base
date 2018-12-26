@@ -1,0 +1,532 @@
+#include "ftp.h"
+
+Ftp::Ftp(QObject * parent)
+    :QThread(parent),ftpobj(0)
+{
+    QString cmdstr;
+
+    putDir.setPath(PUTPIX_JPG_FILEPATH);
+    if(putDir.exists())
+    {
+        cmdstr = PUTPIX_JPG_FILEPATH;
+        cmdstr.append(" exists");
+        emit TicketDebug(cmdstr);
+    }
+    else
+    {
+        cmdstr = "mkdir -p ";
+        cmdstr.append(PUTPIX_JPG_FILEPATH);
+        emit TicketDebug(cmdstr);
+        QProcess::execute(cmdstr);
+        QProcess::execute("sync");
+    }
+    putDir.setFilter(QDir::Files);
+    putDir.setSorting(QDir::Size|QDir::Reversed);
+
+    getDir.setPath(GETPIX_JPG_FILEPATH);
+    if(getDir.exists())
+    {
+        cmdstr = GETPIX_JPG_FILEPATH;
+        cmdstr.append(" exists");
+        emit TicketDebug(cmdstr);
+    }
+    else
+    {
+        cmdstr = "mkdir -p ";
+        cmdstr.append(GETPIX_JPG_FILEPATH);
+        emit TicketDebug(cmdstr);
+        QProcess::execute(cmdstr);
+        QProcess::execute("sync");
+    }
+    getDir.setFilter(QDir::Files);
+    getDir.setSorting(QDir::Size|QDir::Reversed);
+
+    tempDir.setPath(TEMPPIX_JPG_FILEPATH);
+    if(tempDir.exists())
+    {
+        cmdstr = TEMPPIX_JPG_FILEPATH;
+        cmdstr.append(" exists");
+        emit TicketDebug(cmdstr);
+    }
+    else
+    {
+        cmdstr = "mkdir -p ";
+        cmdstr.append(TEMPPIX_JPG_FILEPATH);
+        emit TicketDebug(cmdstr);
+        QProcess::execute(cmdstr);
+        QProcess::execute("sync");
+    }
+    tempDir.setFilter(QDir::Files);
+    tempDir.setSorting(QDir::Size|QDir::Reversed);
+
+    ftpOk = 0;
+    ftpStartFlag = 0;
+    ftpStopFlag = 0;
+    cdFlieFlag = 0;
+    putFlieFlag = 0;
+    getFileFlag = 0;
+    putOrGetFlag = 0;
+
+    timer = new QTimer(this);
+    FtpOperatimer=  new QTimer(this);
+    connect(timer,SIGNAL(timeout()),this,SLOT(FtpReadFile()));
+    timer->start(50);
+
+    connect(FtpOperatimer,SIGNAL(timeout()),this,SLOT(FtpOpera()));
+
+    fm = this->parent();
+    emit TicketDebug("Ftp run");
+}
+
+void Ftp::FtpReadFile(void)
+{
+    quint16 cnt;
+
+    if(putOrGetFlag)
+    {
+        tempDir.setPath(TEMPPIX_JPG_FILEPATH);
+        flielist = tempDir.entryInfoList();
+        cnt = flielist.size();
+        if(cnt == 0)
+        {
+            putOrGetFlag = 0;
+            return;
+        }
+
+        if((cnt > FTPTEMPMAXCNT)&&(ftpStopFlag == 0))
+        {
+            ftpStopFlag = 1;
+            ToFormFtp(0, 0, FTPSTOP);
+        }
+        if((cnt <= FTPTEMPMAXCNT)&&ftpStopFlag)
+        {
+            ftpStopFlag = 0;
+            ToFormFtp(0, 0, FTPOK);
+        }
+        if(ftpOk&&(!putFlieFlag)&&(!getFileFlag)&&(!cdFlieFlag))
+        {
+            if(cnt)
+            {
+                upFileInfo = flielist.at(0);
+                fileName = upFileInfo.fileName();
+                filePath = upFileInfo.path() + "/";
+                cdPath = FTPPIX_JPG_FILEPATH;
+                ftpobj->cd(cdPath);
+                cdFlieFlag = 1;
+                FtpOperatimer->start(FTPTIMEOUT);
+            }
+        }
+    }
+    else
+    {
+        putDir.setPath(PUTPIX_JPG_FILEPATH);
+        flielist = putDir.entryInfoList();
+        cnt = flielist.size();
+        if(cnt == 0)
+        {
+            putOrGetFlag = 1;
+            return;
+        }
+
+        if((cnt > FTPMAXCNT)&&(ftpStopFlag == 0))
+        {
+            ftpStopFlag = 1;
+            ToFormFtp(0, 0, FTPSTOP);
+        }
+        if((cnt <= FTPMAXCNT)&&ftpStopFlag)
+        {
+            ftpStopFlag = 0;
+            ToFormFtp(0, 0, FTPOK);
+        }
+        if(ftpOk&&(!putFlieFlag)&&(!getFileFlag)&&(!cdFlieFlag))
+        {
+            if(cnt)
+            {
+                upFileInfo = flielist.at(0);
+                fileName = upFileInfo.fileName();
+                filePath = upFileInfo.path() + "/";
+                cdPath = upFileInfo.created().date().toString("/yyyy/MM/dd");
+                ftpobj->cd(cdPath);
+                cdFlieFlag = 1;
+                FtpOperatimer->start(FTPTIMEOUT);
+            }
+        }
+    }
+}
+
+void Ftp::FtpOpera(void)
+{
+    emit TicketDebug("FtpOpera ConnectOrDisconnect timeout");
+    FtpOperatimer->stop();
+    ConnectOrDisconnect();
+}
+void Ftp::run()
+{
+    msleep(3000);
+
+    while(1)
+    {
+        msleep(1000);
+    }
+}
+
+void Ftp::ConnectOrDisconnect()
+{
+    emit TicketDebug("ConnectOrDisconnect ftpobj");
+
+    ftpOk = 0;
+    ftpStartFlag = 0;
+    ftpStopFlag = 0;
+    cdFlieFlag = 0;
+    putFlieFlag = 0;
+    getFileFlag = 0;
+    putOrGetFlag = 0;
+
+    if(ftpStartFlag)
+    {
+        ToFormFtp(0, 0, CONNECTTOHOSTERR);
+    }
+    if(ftpobj)
+    {
+        ftpobj->abort();
+        ftpobj->deleteLater();
+        ftpobj = 0;
+    }
+
+    ftpobj = new QFtp(this);
+    if(ftpobj == NULL)
+    {
+        emit TicketDebug("ConnectOrDisconnect NULL");
+    }
+    else
+    {
+        //qDebug()<<ftpobj;
+    }
+    connect(ftpobj, SIGNAL(commandFinished(int, bool)),this, SLOT(FtpCmdFinished(int, bool)));
+    connect(ftpobj, SIGNAL(commandStarted(int)),this, SLOT(FtpCmdStarted(int)));
+    ftpobj->connectToHost(hostip,ftpport);
+    ftpStartFlag = 1;
+    FtpOperatimer->start(FTPTIMEOUT);
+}
+
+void Ftp::PutFile(QString fileName, QString path)
+{
+    QFile *file_upload;
+    QString str;
+    QByteArray pic;
+
+    putFlieFlag = 1;
+
+    str = path + fileName;
+
+    emit TicketDebug("open "+str);
+    file_upload = new QFile(str);
+    if(!file_upload->open(QIODevice::ReadOnly))
+    {
+        emit TicketDebug("File open failed");
+        putFlieFlag = 0;
+        FtpOperatimer->stop();
+        return;
+    }
+    emit TicketDebug("file_upload->handle(): " + QString::number(file_upload->handle()));
+
+    pic = file_upload->readAll();
+    file_upload->close();
+    emit TicketDebug("close "+str);
+
+    ftpobj->put(pic,fileName);
+    FtpOperatimer->start(FTPTIMEOUT);
+}
+
+void Ftp::GetFile(QString fileName, QString path)
+{
+    getFileFlag = 1;
+    cdPath = path;
+    ftpobj->get(fileName);
+    FtpOperatimer->start(FTPTIMEOUT);
+}
+
+void Ftp::RmFile(QString fileName, QString path)
+{
+    QString str;
+
+    str = "rm ";
+    str += path;
+    str += fileName;
+    emit TicketDebug(str);
+    QProcess::execute(str);
+    QProcess::execute("sync");
+
+    if(putOrGetFlag)
+    {
+        putOrGetFlag = 0;
+        getFileFlag = 0;
+    }
+    else
+    {
+        putOrGetFlag = 1;
+        putFlieFlag = 0;
+    }
+}
+
+void Ftp::FtpCmdStarted(int)
+{
+    switch(ftpobj->currentCommand())
+    {
+    case QFtp::ConnectToHost:
+    {
+        emit TicketDebug("Connecting to server...");
+        break;
+    }
+    case QFtp::SetTransferMode:
+    {
+        emit TicketDebug("SetTransferMode...");
+        break;
+    }
+    case QFtp::Login:
+    {
+        emit TicketDebug("Loginning...");
+        break;
+    }
+    case QFtp::Get:
+    {
+        emit TicketDebug("Downloading...");
+        emit TicketDebug("DownLoad " + cdPath + fileName);
+        break;
+    }
+    case QFtp::Cd:
+    {
+        emit TicketDebug("Entering the directory...");
+        emit TicketDebug("Entering " + cdPath);
+        break;
+    }
+    case QFtp::Mkdir:
+    {
+        emit TicketDebug("Create the directory...");
+        emit TicketDebug("Create " + cdPath);
+        break;
+    }
+    case QFtp::Put:
+    {
+        emit TicketDebug("Uploading...");
+        emit TicketDebug("Uploaded " + filePath + fileName);
+        break;
+    }
+    case QFtp::Close:
+    {
+        emit TicketDebug("Closing the connection...");
+        break;
+    }
+    default:
+    {
+        emit TicketDebug("FtpCmdStarted-->"+QString::number(ftpobj->currentCommand()));
+        break;
+    }
+    }
+}
+void Ftp::FtpCmdFinished(int, bool error)
+{
+    switch(ftpobj->currentCommand())
+    {
+    case QFtp::ConnectToHost:
+    {
+        ftpStartFlag = 0;
+        FtpOperatimer->stop();
+        if(error)
+        {
+            emit TicketDebug("Connect to server failed-->"+ftpobj->errorString());
+            ToFormFtp(0, 0, CONNECTTOHOSTERR);
+        }
+        else
+        {
+            emit TicketDebug("Connect to server successfully");
+            ftpobj->login("sendinfo","sendinfo");
+        }
+        FtpOperatimer->start(FTPTIMEOUT);
+        break;
+    }
+    case QFtp::Login:
+    {
+        FtpOperatimer->stop();
+        if(error)
+        {
+            emit TicketDebug("Login failed-->"+ftpobj->errorString());
+            ToFormFtp(0, 0, LOGINERR);
+        }
+        else
+        {
+            emit TicketDebug("Login successfully");
+            ftpobj->setTransferMode(QFtp::Passive);
+        }
+        FtpOperatimer->start(FTPTIMEOUT);
+        break;
+    }
+    case QFtp::SetTransferMode:
+    {
+        FtpOperatimer->stop();
+        if(error)
+        {
+            emit TicketDebug("SetTransferMode failed-->"+ftpobj->errorString());
+            ToFormFtp(0, 0, SETTRANSFERMODEERR);
+        }
+        else
+        {
+            emit TicketDebug("SetTransferMode successfully");
+            cdPath=QDate::currentDate().toString("/yyyy/MM/dd");
+            ftpobj->cd(cdPath);
+        }
+        FtpOperatimer->start(FTPTIMEOUT);
+        break;
+    }
+    case QFtp::Cd:
+    {
+        FtpOperatimer->stop();
+        if(error)
+        {
+            emit TicketDebug("Enter the directory failed-->"+ftpobj->errorString());
+            if(putOrGetFlag)
+            {
+                FtpOpera();
+            }
+            else
+            {
+                //ToFormFtp(0, 0, CDERR);
+                ftpobj->mkdir(cdPath);
+            }
+            FtpOperatimer->start(FTPTIMEOUT);
+        }
+        else
+        {
+            emit TicketDebug("Enter the directory successfully");
+            cdFlieFlag = 0;
+            if(ftpOk)
+            {
+                if(putOrGetFlag)
+                {
+                    GetFile(fileName, cdPath);
+                }
+                else
+                {
+                    PutFile(fileName, filePath);
+                }
+                FtpOperatimer->start(FTPTIMEOUT);
+            }
+            else
+            {
+                ftpOk = 1;
+                putFlieFlag = 0;
+                getFileFlag = 0;
+                ToFormFtp(0, 0, FTPOK);
+            }
+        }
+        break;
+    }
+    case QFtp::Mkdir:
+    {
+        FtpOperatimer->stop();
+        if(error)
+        {
+            emit TicketDebug("Create the directory failed-->"+ftpobj->errorString());
+            ToFormFtp(0, 0, MKDIRERR);
+            FtpOpera();//ftp执行cd命令时，如果当前没有连接，则会一直间隔一段时间自动执行cd。如果马上重新登入则不会出现这种情况
+        }
+        else
+        {
+            emit TicketDebug("Create the directory successfully");
+            ftpobj->cd(cdPath);
+            FtpOperatimer->start(FTPTIMEOUT);
+        }
+        break;
+    }
+    case QFtp::Put:
+    {
+        FtpOperatimer->stop();
+        if(error)
+        {
+            emit TicketDebug("Uploaded failed-->"+ftpobj->errorString());
+            ToFormFtp(0, 0, PUTERR);
+            FtpOperatimer->start(FTPTIMEOUT);
+        }
+        else
+        {
+            emit TicketDebug("Uploaded successfully");
+            RmFile(fileName, filePath);
+        }
+        break;
+    }
+    case QFtp::Get:
+    {
+        FtpOperatimer->stop();
+        if(error)
+        {
+            emit TicketDebug("Download failed-->"+ftpobj->errorString());
+            ToFormFtp(0, 0, GETERR);
+            FtpOperatimer->start(FTPTIMEOUT);
+        }
+        else
+        {
+            emit TicketDebug("Download successfully");
+            QString str;
+            str = GETPIX_JPG_FILEPATH;
+            str += fileName;
+            ToFormFtp(ftpobj->readAll(), str, PICDAT);
+            RmFile(fileName, filePath);
+        }
+        break;
+    }
+    case QFtp::Close:
+    {
+        if(error)
+        {
+            emit TicketDebug("Close the connection failed-->"+ftpobj->errorString());
+        }
+        else
+        {
+            emit TicketDebug("Close the connection successfully");
+        }
+        break;
+    }
+    default:
+    {
+        emit TicketDebug("FtpCmdFinished-->"+QString::number(ftpobj->currentCommand()));
+        break;
+    }
+    }
+}
+
+void Ftp::ToFormFtp(QByteArray d, QString fileName, quint8 ftpstate)
+{
+    if(ftpStopFlag)
+    {
+        ftpstate = FTPSTOP;
+    }
+    UserEvent *ue = new UserEvent(CR::ftpconnect,this);
+    ue->byteArray = d;
+    ue->msg = fileName;
+    ue->ftpstate = ftpstate;
+    qApp->postEvent(fm,ue);
+}
+
+bool Ftp::event(QEvent *event)
+{
+    if(event->type() == QEvent::User)
+    {
+        UserEvent * ue = static_cast<UserEvent *>(event);
+        switch(ue->userType)
+        {
+        case CR::ftpconnect:
+            ConnectOrDisconnect();
+            break;
+        case CR::ftpGet:
+            GetFile(ue->fileName, ue->path);
+            break;
+        default:
+            return false;
+        }
+    }
+    else
+    {
+        return QThread::event(event);
+    }
+    return true;
+}

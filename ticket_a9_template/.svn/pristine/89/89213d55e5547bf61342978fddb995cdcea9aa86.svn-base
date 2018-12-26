@@ -1,0 +1,28 @@
+#ifndef SETFORM_H
+#define SETFORM_H
+
+#include <QWidget>
+
+namespace Ui {
+    class SetForm;
+}
+
+class SetForm : public QWidget
+{
+    Q_OBJECT
+
+public:
+    explicit SetForm(QWidget *parent = 0);
+    ~SetForm();
+    QString hostipaddr;
+    QString serveripaddr;
+    QString gatewayip;
+    QString maskaddr;
+    QString macaddr;
+    void display();
+private:
+    Ui::SetForm *ui;
+
+};
+
+#endif // SETFORM_H

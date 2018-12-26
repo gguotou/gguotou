@@ -1,0 +1,221 @@
+#include "websocketserver.h"
+
+WebSocketServer::WebSocketServer(QObject *parent) :
+    QThread(parent)
+{
+    //create socket to bind local IP and PORT
+    lsn_fd = socket(PF_UNIX, SOCK_STREAM, 0);
+    if(lsn_fd < 0)
+    {
+        printf("can't create communication socket!");
+        return;
+    }
+
+    //create local IP and PORT
+    srv_addr.sun_family = AF_UNIX;
+    strncpy(srv_addr.sun_path, UNIX_DOMAIN, sizeof(srv_addr.sun_path) - 1);
+    unlink(UNIX_DOMAIN);
+
+    //bind sockfd and sockaddr
+    ret = bind(lsn_fd, (struct sockaddr*)&srv_addr, sizeof(srv_addr));
+    if(ret == -1)
+    {
+        printf("can't bind local sockaddr!");
+        close(lsn_fd);
+        unlink(UNIX_DOMAIN);
+        return;
+    }
+
+    //listen lsn_fd, try listen 1
+    ret = listen(lsn_fd, 1);
+    if(ret == -1)
+    {
+        printf("can't listen client connect request");
+        close(lsn_fd);
+        unlink(UNIX_DOMAIN);
+        return;
+    }
+
+    clt_len = sizeof(clt_addr);
+
+    wait = 0;
+    fm = this->parent();
+}
+void WebSocketServer::run()
+{
+    while(1)
+    {
+        apt_fd = accept(lsn_fd, (struct sockaddr*)&clt_addr, &clt_len);
+        if(apt_fd < 0)
+        {
+            printf("can't listen client connect request");
+            close(lsn_fd);
+            unlink(UNIX_DOMAIN);
+            return;
+        }
+
+        //read and printf client info
+        memset(buf, 0, 1024);
+        int rcv_num = read(apt_fd, buf, sizeof(buf));
+        //printf("Message from client (%d) :%s\n", rcv_num, buf);
+        wait = 1;
+
+        UserEvent *ue = new UserEvent(CR::WebSocketServerToController,this);
+        ue->msg = buf;
+        qApp->postEvent(fm,ue);
+
+        while(wait)msleep(50);//等待闸机读du温湿度控制器的值
+    }
+}
+
+bool WebSocketServer::event(QEvent *event)
+{
+    if(event->type() == QEvent::User)
+    {
+        UserEvent * ue = static_cast<UserEvent *>(event);
+        switch(ue->userType)
+        {
+            case CR::WebSocketServerToWebSocketClient:
+                SendDat(ue->byteArray);
+                break;
+            default:
+                return false;
+        }
+    }
+    else
+    {
+        return QThread::event(event);
+    }
+    return true;
+}
+
+void WebSocketServer::SendDat(QByteArray dat)
+{
+    int i = 0;
+
+    quint8 humH = (quint8)dat.data()[0];
+    quint8 humL = (quint8)dat.data()[1];
+    quint8 tempH = (quint8)dat.data()[2];
+    quint8 tempL = (quint8)dat.data()[3];
+    quint8 humThreshold = (quint8)dat.data()[4];
+    quint8 tempThreshold = (quint8)dat.data()[5];
+    quint8 relay1 = (quint8)dat.data()[6];
+    quint8 relay2 = (quint8)dat.data()[7];
+
+    if(!wait)
+    {
+        wait = 0;
+        printf("communication socket failed, cannot senddat!\n");
+        return;
+    }
+    //qDebug("quint8 humH=%d, quint8 humL=%d, quint8 tempH=%d, quint8 tempL=%d",humH, humL, tempH, tempL);
+    memset(buf, 0, 1024);
+    switch(humH)
+    {
+        case 0xff:
+        i += sprintf(buf + i,"humidityH=SensorNoConnect&");
+        break;
+        case 0xfe:
+        i += sprintf(buf + i,"humidityH=ControllerNoConnect&");
+        break;
+        case 0xfd:
+        i += sprintf(buf + i,"humidityH=DatError&");
+        break;
+        case 0xfc:
+        i += sprintf(buf + i,"humidityH=SetError&");
+        break;
+        default:
+        i += sprintf(buf + i,"humidityH=%d&humidityL=%d&", humH, humL);
+        break;
+    }
+    switch(tempH)
+    {
+        case 0xff:
+        i += sprintf(buf + i,"temperatureH=SensorNoConnect&");
+        break;
+        case 0xfe:
+        i += sprintf(buf + i,"temperatureH=ControllerNoConnect&");
+        break;
+        case 0xfd:
+        i += sprintf(buf + i,"temperatureH=DatError&");
+        break;
+        case 0xfc:
+        i += sprintf(buf + i,"temperatureH=SetError&");
+        break;
+        default:
+        i += sprintf(buf + i,"temperatureH=%d&temperatureL=%d&", tempH, tempL);
+        break;
+    }
+    switch(humThreshold)
+    {
+        case 0xff:
+        i += sprintf(buf + i,"humThreshold=DatError&");
+        break;
+        case 0xfe:
+        i += sprintf(buf + i,"humThreshold=ControllerNoConnect&");
+        break;
+        default:
+        i += sprintf(buf + i,"humThreshold=%d&", humThreshold);
+        break;
+    }
+    switch(tempThreshold)
+    {
+        case 0xff:
+        i += sprintf(buf + i,"tempThreshold=DatError&");
+        break;
+        case 0xfe:
+        i += sprintf(buf + i,"tempThreshold=ControllerNoConnect&");
+        break;
+        default:
+        i += sprintf(buf + i,"tempThreshold=%d&", tempThreshold);
+        break;
+    }
+    switch(relay1)
+    {
+        case 0xff:
+        i += sprintf(buf + i,"relay1=DatError&");
+        break;
+        case 0xfe:
+        i += sprintf(buf + i,"relay1=ControllerNoConnect&");
+        break;
+        case 0x00:
+        i += sprintf(buf + i,"relay1=Close&");
+        break;
+        case 0x01:
+        i += sprintf(buf + i,"relay1=Open&");
+        break;
+        default:break;
+    }
+    switch(relay2)
+    {
+        case 0xff:
+        i += sprintf(buf + i,"relay2=DatError&");
+        break;
+        case 0xfe:
+        i += sprintf(buf + i,"relay2=ControllerNoConnect&");
+        break;
+        case 0x00:
+        i += sprintf(buf + i,"relay2=Close&");
+        break;
+        case 0x01:
+        i += sprintf(buf + i,"relay2=Open&");
+        break;
+        default:break;
+    }
+
+    int snd_num = write(apt_fd, buf, 1024);
+    if(snd_num != 1024)
+    {
+        printf("sendto web server failed!\n");
+        close(apt_fd);
+        close(lsn_fd);
+        unlink(UNIX_DOMAIN);
+        wait = 0;
+        return;
+    }
+    wait = 0;
+
+    QString str = buf;
+    str.insert(0,"Sendto web server: ");
+    emit TicketDebug(str);
+}

@@ -1,0 +1,187 @@
+#include "canbusthread.h"
+
+CanBusThread::CanBusThread(QObject *parent) :
+    QThread(parent)
+{
+    QString cmdstr0 = "canconfig can0 stop";
+    QProcess::execute(cmdstr0);
+    QString cmdstr1 = "canconfig can0 bitrate 125000";
+    QProcess::execute(cmdstr1);
+    QString cmdstr2 = "canconfig can0 start";
+    QProcess::execute(cmdstr2);
+    QProcess::execute("sync");
+
+    fm = this->parent();
+}
+
+void CanBusThread::run()
+{
+    unsigned long nbytes;
+    socklen_t len;
+    struct sockaddr_can addr;
+    struct can_frame frame;
+
+    QByteArray buf;
+
+    s = socket(PF_CAN,SOCK_RAW,CAN_RAW);
+
+    //bind to all enabled can interface
+    addr.can_family = AF_CAN;
+    addr.can_ifindex =0;
+    bind(s,(struct sockaddr*)&addr,sizeof(addr));
+
+    emit TicketDebug("Canbus run");
+    while(1)
+    {
+        nbytes = recvfrom(s,&frame,sizeof(struct can_frame),0,(struct sockaddr *)&addr,&len);
+
+        if(frame.can_id == CAN_ID_SWINGGATE)
+        {
+            buf.resize(0);
+            for(quint8 i=0;i<frame.can_dlc;i++)
+            {
+                buf[i] = frame.data[i];
+            }
+            //emit TicketDebug("CanBusThread read:"+BgComm::ByteArrayToString(buf, 16, true));
+            UserEvent *ue = new UserEvent(CR::SwingGate,this);
+            ue->byteArray = buf;
+            qApp->postEvent(fm,ue);
+        }
+        else if(frame.can_id == CAN_ID_TEMPHUM_CONTROLLER)
+        {
+            buf.resize(0);
+            for(quint8 i=0;i<frame.can_dlc;i++)
+            {
+                buf[i] = frame.data[i];
+            }
+            //emit TicketDebug("CanBusThread read:"+BgComm::ByteArrayToString(buf, 16, true));
+            UserEvent *ue = new UserEvent(CR::ControllerToWebSocketServer,this);
+            ue->byteArray = buf;
+            qApp->postEvent(fm,ue);
+        }
+        else
+        {
+            buf.resize(0);
+            for(quint8 i=0;i<frame.can_dlc;i++)
+            {
+                buf[i] = frame.data[i];
+            }
+            emit TicketDebug("SwingGate CANID = 0x"+QString::number(CAN_ID_SWINGGATE,16));
+            emit TicketDebug("frame message: can_id = 0x"+QString::number(frame.can_id,16)
+                             +" can_dlc = 0x"+QString::number(frame.can_dlc,16)
+                             +" data = "+BgComm::ByteArrayToString(buf, 16, true));
+        }
+        msleep(10);
+    }
+}
+
+bool CanBusThread::event(QEvent *event)
+{
+    if(event->type() == QEvent::User)
+    {
+        UserEvent * ue = static_cast<UserEvent *>(event);
+        switch(ue->userType)
+        {
+            case CR::CanSwingGate:
+                SetPer(ue->flag,ue->num);
+                break;
+            case CR::CanSwingGateType:
+                SetType(ue->type);
+                break;
+            case CR::CanSwingGateBuf:
+                CanWrite(CAN_ID_SWINGGATE, ue->byteArray);
+                break;
+            case CR::CanWriteBuf:
+                CanWrite(ue->canid, ue->byteArray);
+                break;
+            default:
+                return false;
+        }
+    }
+    else
+    {
+        return QThread::event(event);
+    }
+    return true;
+}
+void CanBusThread::SetPer(quint8 flag, quint16 per)
+{
+    QByteArray buf;
+    quint8 verify = 0;
+    buf[0] = 0xfb;
+    verify += buf[0];
+    buf[1] = 0x05;
+    verify += buf[1];
+    if(flag)
+        buf[2] = 0xc5;
+    else
+        buf[2] = 0xc7;
+    verify += buf[2];
+    buf[3] = 0x01;
+    verify += buf[3];
+    buf[4] = per%256;
+    verify += buf[4];
+    verify &= 0x7f;
+    buf[5] = verify;
+
+    CanWrite(CAN_ID_SWINGGATE, buf);
+}
+
+void CanBusThread::SetType(quint8 type)
+{
+    QByteArray buf;
+    quint8 verify = 0;
+    buf[0] = 0xfb;
+    verify += buf[0];
+    buf[1] = 0x05;
+    verify += buf[1];
+    buf[2] = 0x41;
+    verify += buf[2];
+    buf[3] = 0x04;
+    verify += buf[3];
+    buf[4] = type-0xa1;
+    verify += buf[4];
+    verify &= 0x7f;
+    buf[5] = verify;
+
+    CanWrite(CAN_ID_SWINGGATE, buf);
+}
+
+void CanBusThread::CanWrite(quint16 canid, QByteArray sendbuf)
+{
+    unsigned long nbytes;
+    struct sockaddr_can addr;
+    struct ifreq ifr;
+    struct can_frame frame;
+    quint8 i;
+
+    strcpy((char *)(ifr.ifr_name),"can0");
+    ioctl(s,SIOCGIFINDEX,&ifr);
+    //printf("can0 can_ifindex = %x\n",ifr.ifr_ifindex);
+
+    addr.can_family = AF_CAN;
+    addr.can_ifindex = ifr.ifr_ifindex;
+    bind(s,(struct sockaddr*)&addr,sizeof(addr));
+
+    frame.can_id = canid;
+
+    if(sendbuf.length() > 8)
+    {
+        emit TicketDebug(QString("Can frame max data len = 8, this data len = %1, is to long!").arg(sendbuf.length()));
+        frame.can_dlc = 8;
+    }
+    else
+    {
+        frame.can_dlc = sendbuf.length();
+    }
+
+    for(i=0;i<frame.can_dlc;i++)
+    {
+        frame.data[i] = sendbuf[i];
+    }
+
+    nbytes = sendto(s,&frame,sizeof(struct can_frame),0,(struct sockaddr*)&addr,sizeof(addr));
+
+    if((sendbuf.at(2) != 0xc0) && (sendbuf.at(2) != 0xc1))//温湿度读写命令不打印
+        emit TicketDebug("can write: can_id = 0x"+QString::number(canid,16)+" data = "+BgComm::ByteArrayToString(sendbuf, 16, true));
+}

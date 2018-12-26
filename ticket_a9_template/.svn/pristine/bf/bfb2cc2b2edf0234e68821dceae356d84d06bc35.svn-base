@@ -1,0 +1,358 @@
+/*
+ * 这是读条码文件 单独创建一个线程用串口3从矽感读出数据，通过事件传到from文件
+*/
+#include "barcode.h"
+
+BarCode::BarCode(QObject *parent) :
+    QThread(parent)
+{
+    qs = new QSettings(QS_FILEPATH, QSettings::IniFormat);
+    QString comStr;
+    QString str;
+    str = qs->value("ABARCODECOM","COM0").toString();
+    switch(str.mid(3,1).toInt())
+    {
+        case 0x01:comStr = COM1;break;
+        case 0x02:comStr = COM2;break;
+        case 0x03:comStr = COM3;break;
+        case 0x04:comStr = COM4;break;
+        case 0x05:comStr = COM5;break;
+        case 0x06:comStr = COM6;break;
+        default:comStr = BARCODECOM;break;
+    }
+    if(str.mid(3,1).toInt() >=1 && str.mid(3,1).toInt()<=6)
+    {
+        qDebug("barcode com is defined by user.conf");
+    }
+    else
+    {
+        qDebug("barcode com is defined by config.h");
+    }
+
+    if(comStr.indexOf("ttymxc")>=0)
+        IsComOnboardFlag = 1;
+    else
+        IsComOnboardFlag = 0;
+    if(IsComOnboardFlag)
+    {
+        QByteArray a;
+        a = comStr.toLatin1();
+        fp = open(a.data(),O_RDWR|O_NOCTTY|O_NDELAY); //打开串口0读写 //以非阻塞模式打开串口//O_NDELAY 等价于 O_NOBLOCK
+        if(fp == -1)
+        {
+            qDebug()<<QString("open %1 err").arg(comStr);
+            comOpenErr = 1;
+            return;
+        }
+    }
+    else
+    {
+        myCom = new Posix_QextSerialPort(comStr,QextSerialBase::Polling);
+        myCom->open(QIODevice::ReadWrite);
+    }
+    comOpenErr = 0;
+    fm = this->parent();
+
+    barcodeHeatTimer = new QTimer(this);
+    connect(barcodeHeatTimer,SIGNAL(timeout()),this,SLOT(BarcodeHeatTimerOut()));
+    barHeatFlag = 0;
+
+    readComDelayTime = 10;
+}
+
+void BarCode::CloseCom()
+{
+    if(IsComOnboardFlag)
+        close(fp);
+    else
+        myCom->close();
+}
+void BarCode::QuitFlag()
+{
+    quit_flag =1;
+}
+void BarCode::SendBuf(QByteArray buf)
+{
+    if(comOpenErr)return;
+    if(IsComOnboardFlag)
+    {
+        char *message;
+        message = buf.data();
+        write(fp, message, buf.size());
+    }
+    else
+    {
+        myCom->write(buf);
+    }
+}
+
+QByteArray BarCode::ReadMyCom()
+{
+    if(comOpenErr)return 0;
+    if(IsComOnboardFlag)
+    {
+        QByteArray temp;
+        timeval tv;
+        int nread;
+        fd_set rfds;
+        char buff[512];
+
+        int i=0;
+
+        int readFlag = 0;
+        bool dataFlag = 0;
+        temp.resize(0);
+
+        while(1)
+        {
+            if(quit_flag)
+            {
+                //qDebug("BREAK WHILE IN BORAD-----------------------------");
+                break;
+            }
+            tv.tv_sec=0;
+            tv.tv_usec=500;
+            FD_ZERO(&rfds);
+            FD_SET(fp, &rfds);
+            readFlag = select(1+fp, &rfds, NULL, NULL, &tv);
+            if (readFlag > 0)
+            {
+                dataFlag = 1;
+                if (FD_ISSET(fp, &rfds))
+                {
+                    nread = read(fp, buff, 512);
+
+                    for(i=0;i<nread;i++)
+                    {
+                        temp[temp.length()] = buff[i];
+                    }
+                }
+            }
+            if((readFlag == 0)&&dataFlag)
+            {
+                dataFlag = 0;
+                return temp;
+            }
+            msleep(readComDelayTime);
+        }
+        return temp;
+    }
+    else
+    {
+        QByteArray temp;
+        QByteArray buf;
+        bool readflag = 0;
+        while(1)
+        {
+            if(quit_flag)
+            {
+                //qDebug("BREAK WHILE IN BORAD-----------------------------");
+                break;
+            }
+            buf = myCom->readAll();
+            if(buf.isEmpty() && (readflag == 0))
+            {
+            }
+            else if((!buf.isEmpty()) && (readflag))
+            {
+                temp += buf;
+                readflag = 1;
+            }
+            else if((!buf.isEmpty()) && (readflag == 0))
+            {
+                temp = buf;
+                readflag = 1;
+            }
+            else if(buf.isEmpty() && readflag)
+            {
+                return temp;
+            }
+            msleep(readComDelayTime);
+        }
+        return temp;
+    }
+}
+
+void BarCode::run()
+{
+    QByteArray buf;
+    quit_flag =0;
+    if(comOpenErr)return;
+    if(IsComOnboardFlag)
+    {
+        struct termios options;
+
+        tcgetattr(fp,&options);
+        //设置波特率
+        switch(BarcodeBaud)
+        {
+            case 0x00://BAUD4800
+                cfsetispeed(&options,B4800);
+                cfsetospeed(&options,B4800);
+                break;
+            case 0x01://BAUD9600
+                cfsetispeed(&options,B9600);
+                cfsetospeed(&options,B9600);
+                break;
+            case 0x02://BAUD38400
+                cfsetispeed(&options,B38400);
+                cfsetospeed(&options,B38400);
+                break;
+            case 0x03://BAUD57600
+                cfsetispeed(&options,B57600);
+                cfsetospeed(&options,B57600);
+                break;
+            case 0x04://BAUD115200
+                cfsetispeed(&options,B115200);
+                cfsetospeed(&options,B115200);
+                break;
+            default://BAUD9600
+                cfsetispeed(&options,B9600);
+                cfsetospeed(&options,B9600);
+                break;
+        }
+        options.c_cflag |= (CLOCAL|CREAD);
+
+        options.c_lflag  &= ~(ICANON | ECHO | ECHOE | ISIG);  /*Input*/
+        options.c_oflag  &= ~OPOST;   /*Output*/
+        options.c_iflag  &= ~(ICRNL|IXON);
+
+        tcsetattr(fp,TCSANOW,&options);
+    }
+    else
+    {
+        //设置波特率
+        switch(BarcodeBaud)
+        {
+            case 0x00://BAUD4800
+                myCom->setBaudRate(BAUD4800);
+                break;
+            case 0x01://BAUD9600
+                myCom->setBaudRate(BAUD9600);
+                break;
+            case 0x02://BAUD38400
+                myCom->setBaudRate(BAUD38400);
+                break;
+            case 0x03://BAUD57600
+                myCom->setBaudRate(BAUD57600);
+                break;
+            case 0x04://BAUD115200
+                myCom->setBaudRate(BAUD115200);
+                break;
+            default://BAUD9600
+                myCom->setBaudRate(BAUD9600);
+                break;
+        }
+
+        myCom->setDataBits(DATA_8);
+        myCom->setParity(PAR_NONE);
+        myCom->setStopBits(STOP_1);
+
+        //设置数据流控制
+        myCom->setFlowControl(FLOW_OFF);
+        //设置延时
+        myCom->setTimeout(5);
+    }
+
+    //设置延时
+    switch(BarcodeBaud)
+    {
+        case 0x00://BAUD4800
+        {
+            if(220000%4800)
+                readComDelayTime = 220000/4800 + 1;
+            else
+                readComDelayTime = 220000/4800;
+            break;
+        }
+        case 0x01://BAUD9600
+        {
+            if(220000%9600)
+                readComDelayTime = 220000/9600 + 1;
+            else
+                readComDelayTime = 220000/9600;
+            break;
+        }
+        case 0x02://BAUD38400
+        {
+            if(220000%38400)
+                readComDelayTime = 220000/38400 + 1;
+            else
+                readComDelayTime = 220000/38400;
+            break;
+        }
+        case 0x03://BAUD57600
+        {
+            if(220000%57600)
+                readComDelayTime = 220000/57600 + 1;
+            else
+                readComDelayTime = 220000/57600;
+            break;
+        }
+        case 0x04://BAUD115200
+        {
+            if(220000%115200)
+                readComDelayTime = 220000/115200 + 1;
+            else
+                readComDelayTime = 220000/115200;
+            break;
+        }
+        default://BAUD9600
+        {
+            if(220000%9600)
+                readComDelayTime = 220000/9600 + 1;
+            else
+                readComDelayTime = 220000/9600;
+            break;
+        }
+    }
+
+    //BarcodeHeat();
+    emit TicketDebug("BarCode run");
+    while(1)
+    {
+        if(quit_flag)
+        {
+            //qDebug("BREAK WHILE IN BORAD-----------------------------");
+            break;
+        }
+        buf = ReadMyCom();
+        UserEvent *ue = new UserEvent(CR::BarCode,this);
+        ue->byteArray = buf;
+        qApp->postEvent(fm,ue);
+        if(((quint8)buf.data()[0] == 0xaa)&&((quint8)buf.data()[1] == 0x55)&&((quint8)buf.data()[4] == 0xcd))
+        {
+            barHeatFlag = 1;
+        }
+    }
+}
+
+void BarCode::BarcodeHeat()
+{
+    char cmd[] = {0xaa,0x55,0x00,0x04,0xcd,0x00};
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd));
+    writedata += BgComm::XORVerify(writedata.mid(2, writedata.length()-2));
+
+    SendBuf(writedata);
+    //emit TicketDebug("BarCodeHeat send:"+BgComm::ByteArrayToString(writedata, 16, true));
+    barcodeHeatTimer->start(5000);
+}
+
+void BarCode::BarcodeHeatTimerOut()
+{
+    barcodeHeatTimer->stop();
+
+    BarcodeHeat();
+    if(barHeatFlag)         //已收到二维码阅读器心跳返回指令
+    {
+        barHeatFlag = 0;
+        return;
+    }
+    char cmd[] = {0xaa,0x55,0x00,0x04,0xcd,0x00};
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd));
+    writedata += BgComm::XORVerify(writedata.mid(2, writedata.length()-2));
+
+    UserEvent *ue = new UserEvent(CR::BarCode,this);
+    ue->byteArray = writedata;
+    qApp->postEvent(fm,ue);
+}

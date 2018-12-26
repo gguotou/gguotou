@@ -1,0 +1,36 @@
+/*
+ * 这是一个调试显示窗口文件
+*/
+#include "debugform.h"
+
+DebugForm::DebugForm(QWidget *parent) :
+    QWidget(parent),
+    ui(new Ui::DebugForm)
+{
+    ui->setupUi(this);
+}
+
+DebugForm::~DebugForm()
+{
+    delete ui;
+}
+bool DebugForm::event(QEvent *event)
+{
+   if(event->type() == QEvent::User)
+   {
+       UserEvent * ue = static_cast<UserEvent *>(event);
+       switch(ue->userType)
+       {
+           case CR::DebugMsg:
+               ui->textBrowser->append(ue->msg);
+               break;
+           default:
+               return false;
+       }
+   }
+   else
+   {
+       return QWidget::event(event);
+   }
+   return true;
+}

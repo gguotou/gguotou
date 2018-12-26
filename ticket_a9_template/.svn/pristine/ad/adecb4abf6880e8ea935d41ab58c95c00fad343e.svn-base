@@ -1,0 +1,57 @@
+#ifndef BARCODE_H
+#define BARCODE_H
+
+#include <QThread>
+#include <QApplication>
+#include <QDebug>
+#include <QTimer>
+#include "config.h"
+#include "protocol.h"
+#include "userevent.h"
+#include "posix_qextserialport.h"
+#include "userevent.h"
+#include "dataprocess.h"
+
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
+class BarCode : public QThread
+{
+    Q_OBJECT
+public:
+    explicit BarCode(QObject *parent = 0);
+    quint8 BarcodeBaud;
+    void CloseCom();
+    void QuitFlag();
+
+private:
+    QObject *fm;
+    Posix_QextSerialPort *myCom;
+    void run();
+    bool quit_flag;
+
+    int fp;
+    bool comOpenErr;
+    void SendBuf(QByteArray buf);
+    QByteArray ReadMyCom();
+    bool IsComOnboardFlag;
+    quint16 readComDelayTime;
+
+    bool barHeatFlag;
+    QTimer *barcodeHeatTimer;
+    void BarcodeHeat();
+private slots:
+    void BarcodeHeatTimerOut();
+signals:
+    void TicketDebug(QString);
+};
+
+#endif // BARCODE_H

@@ -1,0 +1,359 @@
+#include "tcpclientthread.h"
+
+TcpClientThread::TcpClientThread(QObject * parent)
+    :QThread(parent)
+{
+    wReadPoint = 0;
+    wWritePoint = 0;
+
+    readMessageSize = 0;
+    totalMessageSize = 0;
+    tcpData.resize(0);
+#if PROTOCOLVER == NEWPROTOCOL
+    tcpHead = BgComm::StringToByteArray(BgComm::FormatString(TCPHEAD, 2, QChar(' ')), 16, QChar(' '));
+    tcpHeadSize = tcpHead.size();
+#else
+    tcpHeadSize = 0;
+#endif
+    timer = new QTimer(this);
+
+    fm = this->parent();
+
+    tcpSocket = new QTcpSocket(this);
+    connect(timer,SIGNAL(timeout()),this,SLOT(TcpReadErr()));
+    connect(tcpSocket, SIGNAL(readyRead()), this, SLOT(readServer()));
+    connect(tcpSocket, SIGNAL(disconnected()), this, SLOT(tcpDisconnect()));
+    connect(tcpSocket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(tcpError()));
+    connect(tcpSocket,SIGNAL(connected()),this,SLOT(processLogin()));
+}
+/*
+ERROR:调用connectToHost建立连接后调用write发送数据失败
+错误描述：QNativeSocketEngine::write() was not called in QAbstractSocket::ConnectedState
+
+问题描述：错误为不是在QTcpSocket连接状态下调用write()函数，即调用write()时连接尚未建立
+
+问题解决：方法一，在调用connectToHost后接着调用waitForConnected(timeout)，并给延时参数赋值，之后在调用write()函数；
+
+        方法二，在信号connected的槽函数里调用write()函数进行数据发送；
+
+        方法三，在信号stateChangeed的槽函数内判断当前QTcpSocket对象连接状态state()，如果是QAbstractSocket::ConnectedState则调用write()函数进行数据发送；
+
+实际是使用一个连接标志位来决定是否调用write()函数发送数据，在信号connected的槽函数里修改标志位为真，每次定时器到期都首先判断标志位，为假则重新尝试建立连接。
+
+ps：建议方法一方法三结合使用。stateChangeed信号在网线断开的时候有个大概20s的延时，在这20s内socket连接还是在的。这个需要注意。
+*/
+bool TcpClientThread::doConnect(QString serverAddr,quint16 port)
+{
+    //bool connected;
+    tcpSocket->abort();
+    emit TicketDebug("ConnectToHost---serverAddr:"+serverAddr+" port:"+QString::number(port,10));
+    tcpSocket->connectToHost(serverAddr,port,QTcpSocket::ReadWrite);
+    //connected = tcpSocket->waitForConnected(2000);
+    //qDebug()<<"connected:"<<connected;
+    return true;
+}
+
+void TcpClientThread::processLogin()
+{
+    if(tcpSocket->state() == QAbstractSocket::ConnectedState)
+    {
+        UserEvent *te = new UserEvent(CR::ConnectOK,this);
+        qApp->postEvent(fm,te);
+    }
+}
+/*
+连接关闭
+
+错误描述：直接调用disconnect
+
+问题描述：
+
+问题解决：改为调用disconnectFromHost()函数，这个函数会等待这个连接的相关操作（数据发送）完成后才关闭连接。
+
+ps:调用完disconnectFromHost函数后，在使用waitFromDisconnected进行等待，跟建立连接时采用的waitForConnected是一个道理。
+*/
+
+bool TcpClientThread::doDisconnect()
+{
+    QDataStream in(tcpSocket);
+    nextMessageSize = tcpSocket->bytesAvailable();
+    if(nextMessageSize)
+    {
+        //现有的数据读出，以便下次重新读取
+        in.setVersion(QDataStream::Qt_4_8);
+        char * data = new char[nextMessageSize];
+        in.readRawData(data,nextMessageSize);
+        delete []data;
+    }
+    nextMessageSize = 0;
+    readMessageSize = 0;
+    tcpData.resize(0);
+    emit TicketDebug("DisconnectFromHost");
+    tcpSocket->disconnectFromHost();
+    //tcpSocket->close();
+    return true;
+}
+
+void TcpClientThread::tcpError()
+{
+    UserEvent *te = new UserEvent(CR::TcpError,this);
+    te->msg = tcpSocket->errorString();
+    emit TicketDebug("TcpClient::tcpError()---"+tcpSocket->errorString());
+    qApp->postEvent(fm,te);
+}
+
+void TcpClientThread::tcpDisconnect()
+{
+    UserEvent *te = new UserEvent(CR::TcpDisconnect,this);
+    te->msg = tcpSocket->errorString();
+    emit TicketDebug("TcpClient::tcpDisconnect()---"+tcpSocket->errorString());
+    qApp->postEvent(fm,te);
+}
+
+void TcpClientThread::readServer()
+{
+    nextMessageSize = tcpSocket->bytesAvailable();
+
+    QDataStream in(tcpSocket);
+    in.setVersion(QDataStream::Qt_4_8);
+#if PROTOCOLVER == NEWPROTOCOL
+    char * data = new char[nextMessageSize];
+    in.readRawData(data,nextMessageSize);
+    QByteArray qba(data,nextMessageSize);
+    delete []data;
+
+    //emit TicketDebug("readServer: "+BgComm::ByteArrayToString(qba, 16, true));
+    RecvMsg(qba.data(), qba.length());
+#else
+    if(readMessageSize < (4+tcpHeadSize))//first read
+    {
+        timer->start(1500);
+        char * data = new char[nextMessageSize];
+        in.readRawData(data,nextMessageSize);
+        QByteArray qba(data,nextMessageSize);
+        delete []data;
+        tcpData += qba;
+        readMessageSize = nextMessageSize;
+        if(readMessageSize >= (4+tcpHeadSize))
+        {
+            //qDebug()<<"tcp ------------"+BgComm::ByteArrayToString(tcpData, 16, true);
+            totalMessageSize = (quint8)tcpData.data()[2+tcpHeadSize]*256+(quint8)tcpData.data()[3+tcpHeadSize]+5+tcpHeadSize;
+        }
+        if(totalMessageSize == readMessageSize)//only one
+        {
+            timer->stop();
+            if((tcpHeadSize==0) || tcpData.startsWith(tcpHead))
+            {
+                UserEvent * ue = new UserEvent(CR::TcpReadMsg,this);
+                ue->byteArray = tcpData.remove(0,tcpHeadSize);
+                qApp->postEvent(fm,ue);
+                readMessageSize = 0;
+                tcpData.resize(0);
+            }
+            return;
+        }
+    }
+    if((readMessageSize+nextMessageSize) == totalMessageSize)//read cmd over
+    {
+        timer->stop();
+        char * data = new char[nextMessageSize];
+        in.readRawData(data,nextMessageSize);
+        QByteArray qba(data,nextMessageSize);
+        delete []data;
+        tcpData += qba;
+        if((tcpHeadSize==0) || tcpData.startsWith(tcpHead))
+        {
+            UserEvent * ue = new UserEvent(CR::TcpReadMsg,this);
+            ue->byteArray = tcpData.remove(0,tcpHeadSize);
+            qApp->postEvent(fm,ue);
+            readMessageSize = 0;
+            tcpData.resize(0);
+        }
+    }
+#endif
+}
+
+bool TcpClientThread::event(QEvent * event)
+{
+    if(event->type() == QEvent::User)
+    {
+        UserEvent * ue = static_cast<UserEvent *>(event);
+        switch(ue->userType)
+        {
+            case CR::DoConnect:
+                doConnect(ue->ipAddr,ue->port);
+                break;
+            case CR::DoDisconnect:
+                doDisconnect();
+                break;
+            case CR::TcpSendMsg:
+                TcpSend(ue->byteArray);
+                break;
+            default:
+                return false;
+        }
+    }
+    else
+    {
+        return QThread::event(event);
+    }
+    return true;
+}
+
+bool TcpClientThread::TcpSend(QByteArray buf)
+{
+    if(tcpHeadSize)
+        buf.insert(0,tcpHead);
+    qint32 len = -1;
+
+    if(tcpSocket->state() == 3)
+    {
+        len = tcpSocket->write(buf);
+    }
+    if(len < 0)
+    {
+        qDebug("State:%d",tcpSocket->state());// State: 3（ConnectedState）正确
+        UserEvent * uie = new UserEvent(CR::SendtoMessage,this);
+        uie->flag = 0;
+        qApp->postEvent(fm,uie);
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+void TcpClientThread::TcpReadErr()//TCP数据帧超时
+{
+    QDataStream in(tcpSocket);
+    timer->stop();
+    nextMessageSize = tcpSocket->bytesAvailable();
+    if(nextMessageSize)
+    {
+        //现有的数据读出，以便下次重新读取
+        in.setVersion(QDataStream::Qt_4_8);
+        char * data = new char[nextMessageSize];
+        in.readRawData(data,nextMessageSize);
+        delete []data;
+    }
+    emit TicketDebug("The TCP data frame timeout");
+    nextMessageSize = 0;
+    readMessageSize = 0;
+    tcpData.resize(0);
+    tcpDisconnect();//disconnected();
+}
+
+void TcpClientThread::RecvMsg(const char *data, int len)
+{
+    //emit TicketDebug("I will gointo for");
+    int tempWReadPoint = 0;
+    for(int iNum = 0; iNum < len; iNum++) {
+        /**
+         * @brief tempWReadPoint
+         * 存储，到程序执行到此处的时候，wReadPoint的值，因为线程一直在执行，很有可能执行到这步的时候，wReadPoint的值被改变。
+         */
+        tempWReadPoint = wReadPoint;
+        if((wWritePoint + 1) % (BUFSIZE) == tempWReadPoint) {
+            /**
+             * 队列已满
+             */
+            emit TicketDebug(QString("Tcp Packet max data len = %1, this Packet len = %2, is to long!").arg(BUFSIZE).arg(len));
+            continue;
+        }
+        /**
+         * 处理队列不满的情况
+         */
+        TcpQueue[wWritePoint % (BUFSIZE)] = data[iNum];
+        wWritePoint = (wWritePoint +1) % (BUFSIZE);
+    }
+    //emit TicketDebug("After for");
+}
+
+void TcpClientThread::run()
+{
+    emit TicketDebug("TcpClientThread run");
+    int iFlag = 0;              ///< 标志位
+    int iNum = 0;
+    char NeedDealdata[BUFSIZE] = {0};
+    int tempLen = 0;
+    int headNum = 0;
+    int itempWritePoint = 0;
+    int itempReadPoint = 0;
+    while(1) {
+        /**
+         * @brief itempWritePoint
+         * 存储，到程序执行到此处的时候，wWritePoint的值，因为线程一直在执行，很有可能执行到这步的时候，wWritePoint的值被改变。
+         */
+        itempWritePoint = wWritePoint;
+        itempReadPoint = (wReadPoint)%(BUFSIZE);
+        while(itempReadPoint != itempWritePoint) {
+            /**
+             * 队列不空
+             */
+            if(iFlag==0)
+            {
+                if(itempReadPoint < itempWritePoint)
+                {
+                    if((itempReadPoint+8) > itempWritePoint)//可读数据长度不够
+                        break;
+                }
+                else
+                {
+                    if((itempReadPoint-itempWritePoint) > (BUFSIZE-9))//可读数据长度不够
+                        break;
+                }
+            }
+
+            for(headNum=0; (headNum<tcpHeadSize)&&(iFlag==0); headNum++)//iFlag判断用于避免在协议中有帧头的情况
+            {
+                if(tcpHead.at(headNum) != TcpQueue[(wReadPoint + headNum) % (BUFSIZE)])
+                    break;
+            }
+            if(headNum == tcpHeadSize)
+            {
+                /**
+                 * 找帧头
+                 */
+                iNum = 0;
+                NeedDealdata[iNum++] = TcpQueue[(wReadPoint) % (BUFSIZE)];
+                NeedDealdata[iNum++] = TcpQueue[(wReadPoint + 1) % (BUFSIZE)];
+                NeedDealdata[iNum++] = TcpQueue[(wReadPoint + 2) % (BUFSIZE)];
+                NeedDealdata[iNum++] = TcpQueue[(wReadPoint + 3) % (BUFSIZE)];
+
+                wReadPoint = (wReadPoint + 4) % (BUFSIZE);
+                iFlag = 1;
+            }
+
+            if(1 == iFlag) {
+                NeedDealdata[iNum++] = TcpQueue[(wReadPoint) % (BUFSIZE)];
+                wReadPoint = (wReadPoint + 1) % (BUFSIZE);
+            } else {
+                wReadPoint = (wReadPoint + 1) % (BUFSIZE);
+            }
+
+            if((iNum == 8)&& (1 == iFlag))
+            {
+                tempLen = NeedDealdata[6]*256 + NeedDealdata[7];
+            }
+
+            if(tempLen==(iNum-9))
+            {
+                QByteArray tcpData = QByteArray::fromRawData(NeedDealdata,iNum);
+
+                UserEvent * ue = new UserEvent(CR::TcpReadMsg,this);
+                ue->byteArray = tcpData.remove(0, tcpHeadSize);
+                qApp->postEvent(fm,ue);
+                //emit TicketDebug("xxxxxxxxxxxxxx: "+BgComm::ByteArrayToString(tcpData, 16, true));
+                memset(NeedDealdata, '\0', sizeof(NeedDealdata));
+
+                iFlag = 0;
+                iNum = 0;
+            }
+
+            itempWritePoint = wWritePoint;
+            itempReadPoint = (wReadPoint)%(BUFSIZE);
+        }
+        msleep(1);
+    }
+}

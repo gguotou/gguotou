@@ -1,0 +1,37 @@
+#ifndef USEREVENT_H
+#define USEREVENT_H
+
+#include <QEvent>
+#include "protocol.h"
+
+class UserEvent : public QEvent
+{
+public:
+    UserEvent(CR::EventType userType,QObject * id);
+    CR::EventType userType;
+    QObject * id;
+    QString msg;
+    QString ipAddr;
+    quint16 port;
+    quint8 times;
+    quint8 type;
+    QString name;
+
+    quint16 result;
+    QByteArray byteArray,ticketInfo;
+    QString ticketInfoBase64;
+    QString ticketOrderBase64;
+    quint8 ticketlen,ticketnum,ticketstyle;
+    QByteArray ticketno,ticketnore;
+
+    quint8 p22PartNoGuidLen;
+    quint16 num;
+    bool flag;
+    quint8 ftpstate;
+    quint16 canid;
+
+    QString fileName;
+    QString path;
+};
+
+#endif // USEREVENT_H

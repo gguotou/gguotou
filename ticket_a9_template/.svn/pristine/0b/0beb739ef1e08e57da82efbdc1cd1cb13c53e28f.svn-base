@@ -1,0 +1,386 @@
+/*
+ * 这是一个控制摆闸翼闸开门文件，通过向串口写些命令，可以控制摆闸，翼闸处于不同的工作模式，
+ * 同时闸机通过一个人时，向上报告.
+*/
+#include "swinggate.h"
+
+SwingGate::SwingGate(QObject *parent) :
+    QThread(parent)
+{
+    QString comStr = SWINGGATECOM;
+    if(comStr.indexOf("ttymxc")>=0)
+        IsComOnboardFlag = 1;
+    else
+        IsComOnboardFlag = 0;
+    if(IsComOnboardFlag)
+    {
+        fp = open(SWINGGATECOM,O_RDWR|O_NOCTTY|O_NDELAY); //打开串口0读写 //以非阻塞模式打开串口//O_NDELAY 等价于 O_NOBLOCK
+        if(fp == -1)
+        {
+            qDebug()<<QString("open %1 err").arg(SWINGGATECOM);
+            comOpenErr = 1;
+            return;
+        }
+
+        struct termios options;
+        tcgetattr(fp,&options);
+        //设置波特率
+        cfsetispeed(&options,B9600);
+        cfsetospeed(&options,B9600);
+
+        options.c_cflag |= (CLOCAL|CREAD);
+
+        options.c_lflag  &= ~(ICANON | ECHO | ECHOE | ISIG);  /*Input*/
+        options.c_oflag  &= ~OPOST;   /*Output*/
+        options.c_iflag  &= ~(ICRNL|IXON);
+
+        tcsetattr(fp,TCSANOW,&options);
+    }
+    else
+    {
+        myCom = new Posix_QextSerialPort(SWINGGATECOM,QextSerialBase::Polling);
+        myCom->open(QIODevice::ReadWrite);
+        //根据组合枢内容对串口进行设置
+        //设置波特率
+        myCom->setBaudRate(BAUD9600);
+        myCom->setDataBits(DATA_8);
+        myCom->setParity(PAR_NONE);
+        myCom->setStopBits(STOP_1);
+
+        //设置数据流控制
+        myCom->setFlowControl(FLOW_OFF);
+        //设置延时
+        myCom->setTimeout(5);
+    }
+
+    if(220000%9600)
+        readComDelayTime = 220000/9600 + 1;
+    else
+        readComDelayTime = 220000/9600;
+
+    comOpenErr = 0;
+    fm = this->parent();
+
+    swingGateHeatTimer = new QTimer(this);
+    connect(swingGateHeatTimer,SIGNAL(timeout()),this,SLOT(SwingGateHeatTimerOut()));
+    swingHeatFlag = 0;
+}
+void SwingGate::CloseCom()
+{
+    if(IsComOnboardFlag)
+        close(fp);
+    else
+        myCom->close();
+}
+void SwingGate::QuitFlag()
+{
+    quit_flag =1;
+}
+void SwingGate::SendBuf(QByteArray buf)
+{
+
+    if(comOpenErr)return;
+    if(IsComOnboardFlag)
+    {
+        char *message;
+        message = buf.data();
+        write(fp, message, buf.size());
+    }
+    else
+    {
+        myCom->write(buf,buf.size());
+    }
+
+}
+
+QByteArray SwingGate::ReadMyCom()
+{
+    if(comOpenErr)return 0;
+    if(IsComOnboardFlag)
+    {
+        QByteArray temp;
+        timeval tv;
+        int nread;
+        fd_set rfds;
+        char buff[512];
+
+        int i=0;
+
+        int readFlag = 0;
+        bool dataFlag = 0;
+        temp.resize(0);
+
+        while(1)
+        {
+            tv.tv_sec=0;
+            tv.tv_usec=500;
+            FD_ZERO(&rfds);
+            FD_SET(fp, &rfds);
+
+            readFlag = select(1+fp, &rfds, NULL, NULL, &tv);
+            if (readFlag > 0)
+            {
+                dataFlag = 1;
+                if (FD_ISSET(fp, &rfds))
+                {
+                    nread = read(fp, buff, 512);
+
+                    for(i=0;i<nread;i++)
+                    {
+                        temp[temp.length()] = buff[i];
+                    }
+                }
+            }
+            if((readFlag == 0)&&dataFlag)
+            {
+                dataFlag = 0;
+                return temp;
+            }
+            msleep(readComDelayTime);
+        }
+        return temp;
+    }
+    else
+    {
+        QByteArray temp;
+        QByteArray buf;
+        bool readflag = 0;
+        while(1)
+        {
+            buf = myCom->readAll();
+            if(buf.isEmpty() && (readflag == 0))
+            {
+            }
+            else if((!buf.isEmpty()) && (readflag))
+            {
+                temp += buf;
+                readflag = 1;
+            }
+            else if((!buf.isEmpty()) && (readflag == 0))
+            {
+                temp = buf;
+                readflag = 1;
+            }
+            else if(buf.isEmpty() && readflag)
+            {
+                return temp;
+            }
+            msleep(readComDelayTime);
+        }
+        return temp;
+    }
+}
+
+void SwingGate::run()
+{
+    QByteArray buf,temp;
+    buf.resize(0);
+    int j,Verify,len;
+    quit_flag = 0;
+    if(comOpenErr)return;
+    //SwingGateHeat();
+    emit TicketDebug("Swinggate run");
+    while(1)
+    {
+        if(quit_flag)
+        {
+            //qDebug("BREAK WHILE IN BORAD-----------------------------");
+            break;
+        }
+
+        buf = ReadMyCom();
+
+        while(buf.length())
+        {
+            //qDebug()<<"swing read:"<<BgComm::ByteArrayToString(buf,16,true);
+            if((quint8)buf.data()[0] == 0xfb || (quint8)buf.data()[0] == 0xfc || (quint8)buf.data()[0] == 0xfe)
+            {
+                len = 0;
+                if(buf.length() >= 2 )
+                {
+                    len = (quint8)buf.data()[1];
+                }
+                if(len == 0 || len > buf.length())
+                {
+                    buf += ReadMyCom();
+                    continue;
+                }
+                for(j=0,Verify=0;j<len;j++)
+                    Verify += (quint8)buf.data()[j];
+                Verify = Verify & 0x7f;
+
+                if(Verify == (quint8)buf.data()[len])
+                {
+                    temp = buf.mid(0,len+1);
+                    buf = buf.remove(0,len+1);
+                    UserEvent *ue = new UserEvent(CR::SwingGate,this);
+                    ue->byteArray = temp;
+                    qApp->postEvent(fm,ue);
+
+                    if(((quint8)temp.data()[0] == 0xfc)&&((quint8)temp.data()[2] == 0xa5)&&((quint8)temp.data()[3] == 0x01))
+                    {
+                        swingHeatFlag = 1;
+                    }
+
+                }
+                else
+                {
+                    qDebug()<<Verify<<(quint8)buf.data()[len];
+                    qDebug()<<"cmd Verify err";
+                    buf.resize(0);
+                }
+
+            }
+            else
+            {
+                qDebug()<<"cmd head err";
+                buf.resize(0);
+            }
+        }
+
+
+//        UserEvent *ue = new UserEvent(CR::SwingGate,this);
+//        ue->byteArray = buf;
+//        qApp->postEvent(fm,ue);
+
+//        if(((quint8)buf.data()[0] == 0xfc)&&((quint8)buf.data()[2] == 0xa5)&&((quint8)buf.data()[3] == 0x01))
+//        {
+//            swingHeatFlag = 1;
+//        }
+    }
+}
+bool SwingGate::event(QEvent *event)
+{
+    if(event->type() == QEvent::User)
+    {
+        UserEvent * ue = static_cast<UserEvent *>(event);
+        switch(ue->userType)
+        {
+            case CR::SwingGate:
+                SetPer(ue->num);
+                break;
+            case CR::SwingGateType:
+                SetType(ue->type);
+                break;
+            case CR::SwingGateBuf:
+                emit TicketDebug("send to swinggate:"+BgComm::ByteArrayToString(ue->byteArray, 16, true));
+                SendBuf(ue->byteArray);
+                break;
+            default:
+                return false;
+        }
+    }
+    else
+    {
+        return QThread::event(event);
+    }
+    return true;
+}
+
+//void SwingGate::SysCmd(quint8 cmd)
+//{
+//    QByteArray buf;
+//    quint8 verify = 0;
+//    buf[0] = 0xfb;
+//    verify += buf[0];
+//    buf[1] = 0x06;
+//    verify += buf[1];
+//    buf[2] = 0xc5;
+//    verify += buf[2];
+//    buf[3] = 0x01;
+//    verify += buf[3];
+//    buf[4] = per/256;
+//    verify += buf[4];
+//    buf[5] = per%256;
+//    verify += buf[5];
+//    verify &= 0x7f;
+//    buf[6] = verify;
+
+//    SendBuf(buf);
+//    emit TicketDebug("sendto swing gate :"+BgComm::ByteArrayToString(buf, 16, true));
+//}
+
+void SwingGate::SetPer(quint16 per)
+{
+    QByteArray buf;
+    quint8 verify = 0;
+    buf[0] = 0xfb;
+    verify += buf[0];
+    buf[1] = 0x06;
+    verify += buf[1];
+    buf[2] = 0xc5;
+    verify += buf[2];
+    buf[3] = 0x01;
+    verify += buf[3];
+    buf[4] = per/256;
+    verify += buf[4];
+    buf[5] = per%256;
+    verify += buf[5];
+    verify &= 0x7f;
+    buf[6] = verify;
+
+    SendBuf(buf);
+    emit TicketDebug("sendto swing gate :"+BgComm::ByteArrayToString(buf, 16, true));
+}
+
+void SwingGate::SetType(quint8 type)
+{
+    /*
+    上位机发送: 0xfb 0x05 0x41 0x04 0x00 CheckSum  工作模式：常规模式（正向检票过人，反向禁止通行）              ---0
+    上位机发送: 0xfb 0x05 0x41 0x04 0x01 CheckSum  工作模式：快速模式（常开）                               ---
+    上位机发送: 0xfb 0x05 0x41 0x04 0x02 CheckSum  工作模式：暂停模式（暂时停止刷票）                         ---4
+    上位机发送: 0xfb 0x05 0x41 0x04 0x03 CheckSum  工作模式：反向敞开计数模式（出口计数，正向通行时，门会自动关闭）  ---
+    上位机发送: 0xfb 0x05 0x41 0x04 0x04 CheckSum  工作模式：正向刷票，反向触发开门模式                        ---2
+    上位机发送: 0xfb 0x05 0x41 0x04 0x05 CheckSum  工作模式：闸门反向敞开，正向自动挡人模式                      ---3
+    上位机发送: 0xfb 0x05 0x41 0x04 0x06 CheckSum  工作模式：闸门双向触发开门，没人时自动关门模式                   ---
+    上位机发送: 0xfb 0x05 0x41 0x04 0x07 CheckSum  工作模式：正向自动触发开门模式，反向刷票开门                    ---
+    */
+    QByteArray buf;
+    quint8 verify = 0;
+    buf[0] = 0xfb;
+    verify += buf[0];
+    buf[1] = 0x05;
+    verify += buf[1];
+    buf[2] = 0x41;
+    verify += buf[2];
+    buf[3] = 0x04;
+    verify += buf[3];
+    buf[4] = type-0xa1;
+    verify += buf[4];
+    verify &= 0x7f;
+    buf[5] = verify;
+
+    SendBuf(buf);
+    emit TicketDebug("sendto swing gate :"+BgComm::ByteArrayToString(buf, 16, true));
+}
+
+void SwingGate::SwingGateHeat()
+{
+    char cmd[] = {0xfb,0x04,0xa5,0x00};
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd));
+    writedata += BgComm::XORVerify(writedata.mid(1, writedata.length()-1));
+
+    SendBuf(writedata);
+    //emit TicketDebug("SwingGateHeat send:"+BgComm::ByteArrayToString(writedata, 16, true));
+    swingGateHeatTimer->start(5000);
+}
+
+void SwingGate::SwingGateHeatTimerOut()
+{
+    swingGateHeatTimer->stop();
+
+    SwingGateHeat();
+    if(swingHeatFlag)         //已收到机芯板心跳返回指令
+    {
+        swingHeatFlag = 0;
+        return;
+    }
+
+    char cmd[] = {0xfc,0x04,0xa5,0x00};
+    QByteArray writedata = QByteArray::fromRawData(cmd,sizeof(cmd));
+    writedata += BgComm::XORVerify(writedata.mid(1, writedata.length()-1));
+
+    UserEvent *ue = new UserEvent(CR::SwingGate,this);
+    ue->byteArray = writedata;
+    qApp->postEvent(fm,ue);
+}

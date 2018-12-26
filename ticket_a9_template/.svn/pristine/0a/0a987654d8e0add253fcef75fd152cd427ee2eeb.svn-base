@@ -1,0 +1,86 @@
+#include "logfileprocess.h"
+
+LogFile::LogFile(QObject *parent) :
+    QThread(parent)
+{
+    fm = this->parent();
+}
+
+void LogFile::run()
+{
+    int errno;
+    unsigned long long blocksize;
+    unsigned long long totalsize;
+    unsigned long long freesize;
+    unsigned long long usedsize;
+
+    emit TicketDebug("LogFile run");
+    while(1)
+    {
+        errno = statfs(LOG_FILEPATH, &diskInfo);
+
+        blocksize = diskInfo.f_bsize;// 每个block里面包含的字节数
+        totalsize = blocksize*diskInfo.f_blocks;//总的字节数
+//        char totalsize_GB[10]={0};
+//        printf("------TOTAL_SIZE == %llu KB  %llu MB  %llu GB\n",totalsize>>10,totalsize>>20,totalsize>>30); // 分别换成KB,MB,GB为单位
+//        sprintf(totalsize_GB,"%.2f",(float)(totalsize>>20)/1024);
+//        printf("------totalsize_GB=%s\n",totalsize_GB);
+
+        freesize = blocksize*diskInfo.f_bfree; //再计算下剩余的空间大小
+//        printf("------DISK_FREE == %llu KB  %llu MB  %llu GB\n",freesize>>10,freesize>>20,freesize>>30);
+
+//        usedsize = blocksize*(diskInfo.f_blocks - diskInfo.f_bfree);
+//        char usedsize_GB[10]={0};
+//        printf("------DISK_USED == %llu KB  %llu MB  %llu GB\n",usedsize>>10,usedsize>>20,usedsize>>30);
+
+//        sprintf(usedsize_GB,"%.2f",(float)(usedsize>>20)/1024);
+//        printf("------usedsize_GB=%s\n",usedsize_GB);
+
+        //printf("++++++DISK_FREE == %llu KB  %llu MB  %llu GB\n",freesize>>10,freesize>>20,freesize>>30);
+        if((freesize>>20) < DISK_FREE_SIZE)
+        {
+            //printf("------DISK_FREE == %llu KB  %llu MB  %llu GB\n",freesize>>10,freesize>>20,freesize>>30);
+
+
+            QString path = PDEBUGLOG_FILEPATH;
+            QDir logDir;
+            logDir.setPath(path);
+            if(!logDir.exists())
+            {
+                QString cmdstr = "mkdir -p ";
+                cmdstr.append(path);
+                emit TicketDebug(cmdstr);
+                QProcess::execute(cmdstr);
+                QProcess::execute("sync");
+            }
+
+            logDir.setFilter(QDir::Dirs);
+            logDir.setSorting(QDir::Time|QDir::Reversed);
+
+            QFileInfoList flieInfoList = logDir.entryInfoList();
+            quint16 cnt = flieInfoList.size();
+
+            //printf("------cnt == %d\n", cnt);
+
+            for(int i=0;i<cnt;i++)
+            {
+                QFileInfo fileInfo = flieInfoList.at(i);
+                if(fileInfo.fileName()=="." || fileInfo.fileName() == "..")
+                {
+                    continue;
+                }
+
+                QString cmdstr = "rm -fr ";
+                cmdstr.append(PDEBUGLOG_FILEPATH);
+                cmdstr.append(fileInfo.fileName());
+                emit TicketDebug(cmdstr);
+                QProcess::execute(cmdstr);
+                QProcess::execute("sync");
+                break;
+            }
+        }
+
+        msleep(500);
+    }
+}
+

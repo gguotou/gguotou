@@ -1,0 +1,93 @@
+#ifndef SoundDevice_H_
+#define SoundDevice_H_
+#include <QObject>
+#include <QThread>
+#include <QDebug>
+#include <QDateTime>
+
+#include "config.h"
+#include "protocol.h"
+#include "userevent.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <alsa/asoundlib.h>
+#include <errno.h>
+#include <QProcess>
+
+class SoundDevice:public QThread
+{
+    Q_OBJECT
+public:
+    SoundDevice(QObject *parent = 0);
+    int dev_fd;
+    virtual ~SoundDevice();
+    QObject *fm;
+    QObject *video;
+    void run();
+    void playSound(QString name);
+    void recordSound(QString name);
+    void stop();
+    void SetVol(quint8);
+    bool playingFlag;
+
+private:
+    struct WAV_HEADER
+    {
+        char rld[4];    // flag "RIFF"
+        int rLen;       // file size
+        char wld[4];    // flag "WAVE"
+        char fld[4];    //"fmt "
+
+        int fLen;   //sizeof(wave format matex)
+
+        short wFormatTag;   //codec format
+        short wChannels;    //channels
+        int   nSamplesPersec ;  //samples rate
+        int   nAvgBitsPersec;// bits per samples
+        short  wBlockAlign; // block align
+        short wBitsPerSample;   // bits per samples
+
+        char dld[4];        //”data“
+        int wSampleLength;  //data size
+    } wav_header;
+
+    int err;
+    char *buffer;
+    unsigned int exact_rate;   /* Sample rate returned by */
+    unsigned int sample_formats[3];
+    int read_length;
+    int dataSizeIn20ms;
+    FILE *fp_wav;
+
+    /* Handle for the PCM device */
+    snd_pcm_t *playback_handle;
+
+    /* Playback stream */
+    snd_pcm_stream_t stream ;
+
+    /* This structure contains information about */
+    /* the hardware and can be used to specify the */
+    /* configuration to be used for the PCM stream. */
+    snd_pcm_hw_params_t *hw_params;
+
+    /* Name of the PCM device, like hw:0,0 */
+    /* The first number is the number of the soundcard, */
+    /* the second number is the number of the device. */
+    char *device; /* playback device */
+
+    bool NewPlayFlag;
+
+    bool m_bStop;
+    bool m_bPlay;
+    bool m_bRecord;
+    QString m_strFileName;
+    int play(QString name);
+    int SetFormat(unsigned int bits, unsigned int chn, unsigned int hz);
+
+    unsigned int errTime;
+signals:
+    void soundplayFlag(bool);
+};
+
+#endif /* SoundDevice_H_ */
